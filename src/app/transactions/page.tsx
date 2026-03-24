@@ -8,6 +8,22 @@ import { ExportButton } from "@/components/export-button";
 import { TransactionCancelButton } from "@/components/transaction-cancel-button";
 import Link from "next/link";
 
+type TransactionRow = {
+  id: string;
+  amount: unknown;
+  type: string;
+  is_cancelled: boolean;
+  created_at: Date;
+  beneficiary: {
+    name: string;
+    card_number: string;
+    remaining_balance: unknown;
+  };
+  facility: {
+    name: string;
+  };
+};
+
 export default async function TransactionsPage({
   searchParams,
 }: {
@@ -74,13 +90,11 @@ export default async function TransactionsPage({
 
   const totalAmount = aggregate._sum.amount ?? 0;
   // حساب إجمالي المتبقي من الصفحة الحالية فقط — تجنب تحميل كل السجلات في الذاكرة
-  const totalRemaining = transactions.reduce((sum, tx) => sum + Number(tx.beneficiary.remaining_balance), 0);
+  const totalRemaining = transactions.reduce((sum: number, tx: TransactionRow) => sum + Number(tx.beneficiary.remaining_balance), 0);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const currentViewTotalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
-
   // المشرف يرى قائمة كل المرافق في الفلتر
-  const facilities = session.is_admin
+  const facilities: Array<{ id: string; name: string }> = session.is_admin
     ? await prisma.facility.findMany({ where: { deleted_at: null }, select: { id: true, name: true }, orderBy: { name: "asc" } })
     : [{ id: session.id, name: session.name }];
 
@@ -95,7 +109,7 @@ export default async function TransactionsPage({
            <h1 className="text-xl font-black text-black">Waha Health Care</h1>
            <h2 className="text-lg font-bold text-black mt-1">سجل الحركات (المراجعة الطبية)</h2>
            <p className="text-sm text-black mt-1 opacity-75">تاريخ استخراج التقرير: {new Date().toLocaleDateString("ar-LY")}</p>
-           {session.is_admin && facility_id && <p className="text-sm font-bold mt-1 text-black">خاص بالمرفق: {facilities.find(f => f.id === facility_id)?.name}</p>}
+           {session.is_admin && facility_id && <p className="text-sm font-bold mt-1 text-black">خاص بالمرفق: {facilities.find((f: { id: string; name: string }) => f.id === facility_id)?.name}</p>}
         </div>
         
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-2 print:hidden">
@@ -196,7 +210,7 @@ export default async function TransactionsPage({
           {transactions.length === 0 ? (
             <p className="py-10 text-center italic text-slate-500">لا توجد نتائج مطابقة للفلاتر الحالية.</p>
           ) : (
-            transactions.map((tx) => (
+            transactions.map((tx: TransactionRow) => (
               <Card key={tx.id} className="overflow-hidden p-0">
                 {/* رأس الكارد */}
                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
@@ -251,7 +265,7 @@ export default async function TransactionsPage({
                     <td colSpan={session.is_admin ? 9 : 8} className="px-6 py-10 text-center italic text-slate-500">لا توجد نتائج مطابقة للفلاتر الحالية.</td>
                   </tr>
                 ) : (
-                  transactions.map((tx, idx) => (
+                  transactions.map((tx: TransactionRow, idx: number) => (
                     <tr key={tx.id} className={`transition-colors hover:bg-slate-50 ${tx.is_cancelled ? "bg-red-50/50 hover:bg-red-50" : ""} ${tx.type === "CANCELLATION" ? "bg-green-50/50 hover:bg-green-50" : ""}`}>
                       <td className="px-6 py-4 font-mono text-xs text-slate-500 font-bold">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td className="px-6 py-4">

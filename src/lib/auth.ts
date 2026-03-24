@@ -2,11 +2,16 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-const secretKey = process.env.JWT_SECRET;
-if (!secretKey) throw new Error("JWT_SECRET environment variable is not set");
-const key = new TextEncoder().encode(secretKey);
+function getJwtKey() {
+  const secretKey = process.env.JWT_SECRET;
+  if (!secretKey) {
+    throw new Error("JWT_SECRET environment variable is not set");
+  }
+  return new TextEncoder().encode(secretKey);
+}
 
 export async function encrypt(payload: Record<string, unknown>) {
+  const key = getJwtKey();
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -15,6 +20,7 @@ export async function encrypt(payload: Record<string, unknown>) {
 }
 
 export async function decrypt(input: string): Promise<Record<string, unknown>> {
+  const key = getJwtKey();
   const { payload } = await jwtVerify(input, key, {
     algorithms: ["HS256"],
   });
