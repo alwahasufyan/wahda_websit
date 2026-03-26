@@ -10,3 +10,9 @@ services:
       - .env.production
     ports:
       - "${APP_HOST_PORT:-3101}:3000"
+    networks:
+      - waadapp_tba_network
+
+networks:
+  waadapp_tba_network:
+    external: true
