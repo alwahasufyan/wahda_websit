@@ -32,27 +32,23 @@ export function FacilityImportUploader() {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await importFacilitiesFromExcel(formData);
-    setResult(res);
-    setLoading(false);
-
-    if (!res.error) {
-      setFile(null);
-      const input = document.getElementById("facility-file-upload") as HTMLInputElement;
-      if (input) input.value = "";
+    try {
+      const res = await importFacilitiesFromExcel(formData);
+      setResult(res);
+      if (!res.error) {
+        setFile(null);
+        const input = document.getElementById("facility-file-upload") as HTMLInputElement;
+        if (input) input.value = "";
+      }
+    } catch {
+      setResult({ error: "خطأ في الاتصال. حاول مرة أخرى." });
+    } finally {
+      setLoading(false);
     }
   };
 
   const downloadTemplate = () => {
-    // إنشاء ملف CSV بسيط كقالب
-    const csv = "اسم المرفق,اسم المستخدم\nمستشفى المركز,hospital_central\nعيادة الشمال,clinic_north";
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "قالب_استيراد_المرافق.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    window.location.href = "/api/export/facility-template";
   };
 
   return (
@@ -81,7 +77,7 @@ export function FacilityImportUploader() {
             type="file"
             id="facility-file-upload"
             className="hidden"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,.xls"
             onChange={handleFileChange}
           />
           <button
@@ -91,7 +87,7 @@ export function FacilityImportUploader() {
             className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-solid border-slate-300 bg-slate-50 px-3 text-sm text-slate-600 hover:border-primary hover:bg-primary-light hover:text-primary disabled:opacity-50 transition-colors"
           >
             <Upload className="h-4 w-4" />
-            {file ? file.name : "اختيار ملف Excel أو CSV"}
+            {file ? file.name : "اختيار ملف Excel"}
           </button>
         </div>
 

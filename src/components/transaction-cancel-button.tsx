@@ -16,6 +16,7 @@ interface TransactionCancelButtonProps {
 export function TransactionCancelButton({ transactionId, isCancelled, type }: TransactionCancelButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   if (isCancelled) {
@@ -26,6 +27,7 @@ export function TransactionCancelButton({ transactionId, isCancelled, type }: Tr
 
   const handleAction = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       if (isRestoreAction) {
         // Restore/Undo cancellation
@@ -34,7 +36,7 @@ export function TransactionCancelButton({ transactionId, isCancelled, type }: Tr
           router.refresh();
           setIsModalOpen(false);
         } else {
-          alert(result.error || "فشل التراجع عن الإلغاء");
+          setError(result.error || "فشل التراجع عن الإلغاء");
         }
       } else {
         // Cancel transaction
@@ -43,12 +45,11 @@ export function TransactionCancelButton({ transactionId, isCancelled, type }: Tr
           router.refresh();
           setIsModalOpen(false);
         } else {
-          alert(result.error || "فشل إلغاء الحركة");
+          setError(result.error || "فشل إلغاء الحركة");
         }
       }
-    } catch (error) {
-      console.error(error);
-      alert("حدث خطأ غير متوقع");
+    } catch {
+      setError("حدث خطأ غير متوقع. حاول مرة أخرى.");
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +58,7 @@ export function TransactionCancelButton({ transactionId, isCancelled, type }: Tr
   return (
     <>
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => { setIsModalOpen(true); setError(null); }}
         disabled={isLoading}
         className={`p-1 rounded-md transition-colors disabled:opacity-50 ${
           isRestoreAction 
@@ -75,6 +76,7 @@ export function TransactionCancelButton({ transactionId, isCancelled, type }: Tr
           onClose={() => setIsModalOpen(false)}
           onConfirm={handleAction}
           isLoading={isLoading}
+          error={error}
           title={isRestoreAction ? "حذف حركة التراجع" : "إلغاء الحركة"}
           description={
             isRestoreAction 

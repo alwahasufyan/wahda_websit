@@ -42,10 +42,11 @@ export default async function TransactionsPage({
     : { facility_id: session.id };
 
   // فلترة بالبحث (اسم أو رقم بطاقة)
-  if (q && q.trim() !== "") {
+  const searchQuery = q?.trim().slice(0, 100) ?? "";
+  if (searchQuery !== "") {
     where.OR = [
-      { beneficiary: { name: { contains: q, mode: "insensitive" } } },
-      { beneficiary: { card_number: { contains: q, mode: "insensitive" } } },
+      { beneficiary: { name: { contains: searchQuery, mode: "insensitive" } } },
+      { beneficiary: { card_number: { contains: searchQuery, mode: "insensitive" } } },
     ];
   }
 

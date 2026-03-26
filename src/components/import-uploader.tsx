@@ -30,13 +30,14 @@ export function ImportUploader() {
     }
 
     const timer = window.setInterval(async () => {
-      const response = await fetch(`/api/import-jobs/${job.id}`, { method: "GET" });
-      if (!response.ok) {
-        return;
+      try {
+        const response = await fetch(`/api/import-jobs/${job.id}`, { method: "GET" });
+        if (!response.ok) return;
+        const payload = await response.json() as { job: ImportJobSnapshot };
+        if (payload?.job) setJob(payload.job);
+      } catch {
+        // تجاهل أخطاء الشبكة العابرة أثناء الاستطلاع
       }
-
-      const payload = await response.json() as { job: ImportJobSnapshot };
-      setJob(payload.job);
     }, 1200);
 
     return () => window.clearInterval(timer);
@@ -71,7 +72,9 @@ export function ImportUploader() {
       }
 
       setJob(payload.job);
-      void fetch(`/api/import-jobs/${payload.job.id}/run`, { method: "POST" });
+      fetch(`/api/import-jobs/${payload.job.id}/run`, { method: "POST" }).catch(() => {
+        setResult({ error: "فشل بدء عملية الاستيراد. حاول مرة أخرى." });
+      });
     } catch {
       setResult({ error: "تعذر رفع الملف أو بدء مهمة الاستيراد." });
     } finally {
@@ -82,6 +85,7 @@ export function ImportUploader() {
   const isBusy = uploading || job?.status === "PENDING" || job?.status === "PROCESSING";
   const isCompleted = job?.status === "COMPLETED";
   const isFailed = job?.status === "FAILED";
+  const hasSkippedRows = Boolean(job && (job.failedRows > 0 || job.duplicateRows > 0));
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
@@ -175,15 +179,30 @@ export function ImportUploader() {
                 <div>
                   <p className="font-black">{isCompleted ? "اكتمل الاستيراد" : "فشل الاستيراد"}</p>
                   <p className="mt-1 text-sm">{job.errorMessage ?? (isCompleted ? "تم تحديث البيانات ويمكنك الآن مراجعة المستفيدين." : "تحقق من الملف ثم أعد المحاولة.")}</p>
+                  {hasSkippedRows && (
+                    <p className="mt-2 text-sm font-medium">
+                      يمكنك تنزيل ملف مستقل يحتوي على السجلات غير المستوردة وسبب كل حالة.
+                    </p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setJob(null)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-current/20 bg-white/70"
-                  title="إخفاء"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {hasSkippedRows && (
+                    <a
+                      href={`/api/import-jobs/${job.id}/skipped-file`}
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-current/20 bg-white/70 px-3 text-sm font-bold"
+                    >
+                      تنزيل غير المستورد
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setJob(null)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-current/20 bg-white/70"
+                    title="إخفاء"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui";
@@ -14,11 +14,15 @@ export function BeneficiariesSearch({ initialQuery }: BeneficiariesSearchProps) 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
+  const isTypingRef = useRef(false);
 
   const paramsSnapshot = useMemo(() => searchParams.toString(), [searchParams]);
 
+  // مزامنة initialQuery فقط عندما لا يكتب المستخدم (مثلاً عند التنقل بالأزرار)
   useEffect(() => {
-    setQuery(initialQuery);
+    if (!isTypingRef.current) {
+      setQuery(initialQuery);
+    }
   }, [initialQuery]);
 
   useEffect(() => {
@@ -26,7 +30,10 @@ export function BeneficiariesSearch({ initialQuery }: BeneficiariesSearchProps) 
       const currentQuery = (searchParams.get("q") ?? "").trim();
       const nextQuery = query.trim();
 
-      if (currentQuery === nextQuery) return;
+      if (currentQuery === nextQuery) {
+        isTypingRef.current = false;
+        return;
+      }
 
       const params = new URLSearchParams(paramsSnapshot);
       if (nextQuery) {
@@ -40,7 +47,10 @@ export function BeneficiariesSearch({ initialQuery }: BeneficiariesSearchProps) 
 
       const next = params.toString();
       router.replace(next ? `${pathname}?${next}` : pathname);
-    }, 350);
+
+      // نُعيد التعيين بعد الانتهاء
+      setTimeout(() => { isTypingRef.current = false; }, 100);
+    }, 400);
 
     return () => clearTimeout(handler);
   }, [query, pathname, router, paramsSnapshot, searchParams]);
@@ -50,7 +60,10 @@ export function BeneficiariesSearch({ initialQuery }: BeneficiariesSearchProps) 
       <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       <Input
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          isTypingRef.current = true;
+          setQuery(e.target.value);
+        }}
         placeholder="ابحث بالاسم أو رقم البطاقة"
         className="pr-10"
       />

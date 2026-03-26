@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const rows: Record<string, unknown>[] = [];
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // تخطي صف العناوين
-      const obj: Record<string, unknown> = {};
+      const obj: Record<string, unknown> = { __rowNumber: rowNumber };
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const header = headers[colNumber - 1];
         if (header) {

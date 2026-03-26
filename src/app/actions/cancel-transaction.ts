@@ -1,14 +1,15 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { logger } from "@/lib/logger";
 
+import { requireActiveFacilitySession } from "@/lib/session-guard";
+
 export async function cancelTransaction(transactionId: string) {
   try {
-    const session = await getSession();
+    const session = await requireActiveFacilitySession();
     if (!session || !session.is_admin) {
       return { error: "غير مصرح لك بإجراء هذه العملية" };
     }

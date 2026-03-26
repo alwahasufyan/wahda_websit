@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "./ui";
-import { LayoutDashboard, ListOrdered, Upload, LogOut, Users, Building2, KeyRound } from "lucide-react";
+import { LayoutDashboard, ListOrdered, Upload, LogOut, Users, Building2, KeyRound, AlertTriangle } from "lucide-react";
 import { logout } from "@/app/actions/auth";
+
+const safeLogout = async () => {
+  try { await logout(); } catch { window.location.href = "/login"; }
+};
 
 const baseNavigation = [
   { name: "الرئيسية", href: "/dashboard", icon: LayoutDashboard },
@@ -15,6 +19,7 @@ const adminNavigation = [
   { name: "المستفيدون", href: "/beneficiaries", icon: Users },
   { name: "الاستيراد", href: "/import", icon: Upload },
   { name: "المرافق الصحية", href: "/admin/facilities", icon: Building2 },
+  { name: "سجل الأخطاء", href: "/admin/client-errors", icon: AlertTriangle },
 ];
 
 export function Shell({ children, facilityName, isAdmin = false }: { children: React.ReactNode; facilityName: string; isAdmin?: boolean }) {
@@ -35,7 +40,7 @@ export function Shell({ children, facilityName, isAdmin = false }: { children: R
                 </div>
               </div>
               <button
-                onClick={() => logout()}
+                onClick={() => safeLogout()}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-red-600 lg:hidden"
                 title="تسجيل الخروج"
               >
@@ -76,7 +81,7 @@ export function Shell({ children, facilityName, isAdmin = false }: { children: R
                     <KeyRound className="h-4 w-4" />
                   </Link>
                   <button
-                    onClick={() => logout()}
+                    onClick={() => safeLogout()}
                     className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-100 hover:text-red-600"
                     title="تسجيل الخروج"
                   >

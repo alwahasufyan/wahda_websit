@@ -23,18 +23,22 @@ export function FacilityEditModal({ facility }: Props) {
     setLoading(true);
     setError(null);
 
-    const result = await updateFacility({ id: facility.id, name, username, resetPassword });
-    setLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess(true);
-      setTimeout(() => {
-        setOpen(false);
-        setSuccess(false);
-        setResetPassword(false);
-      }, 800);
+    try {
+      const result = await updateFacility({ id: facility.id, name, username, resetPassword });
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess(true);
+        setTimeout(() => {
+          setOpen(false);
+          setSuccess(false);
+          setResetPassword(false);
+        }, 800);
+      }
+    } catch {
+      setError("خطأ في الاتصال. حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
     }
   };
 

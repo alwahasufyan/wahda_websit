@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "NODE_OPTIONS='--max-old-space-size=3072' next start",
+    "preview": "next build && next start",
     "lint": "eslint"
   },
   "dependencies": {

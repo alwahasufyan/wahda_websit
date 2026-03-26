@@ -35,6 +35,15 @@ export async function createFacility(prevState: unknown, formData: FormData) {
     data: { name, username, password_hash, is_admin: false, must_change_password: true },
   });
 
+  await prisma.auditLog.create({
+    data: {
+      facility_id: session.id,
+      user: session.username,
+      action: "CREATE_FACILITY",
+      metadata: { new_facility_username: username, name },
+    },
+  });
+
   redirect("/admin/facilities");
 }
 
@@ -56,6 +65,12 @@ export async function updateFacility(data: {
 
   const { id, name, username } = parsed.data;
 
+  // التحقق من وجود المرفق
+  const facility = await prisma.facility.findUnique({ where: { id } });
+  if (!facility) {
+    return { error: "المرفق غير موجود" };
+  }
+
   // التحقق من عدم تكرار اسم المستخدم
   const existing = await prisma.facility.findUnique({ where: { username } });
   if (existing && existing.id !== id) {
@@ -65,9 +80,8 @@ export async function updateFacility(data: {
   const updateData: Record<string, unknown> = { name, username };
 
   if (data.resetPassword) {
-    // كلمة مرور عشوائية مؤقتة — المستخدم مُجبر على تغييرها عند أول دخول
-    const crypto = await import("crypto");
-    const tempPassword = crypto.randomBytes(6).toString("base64url");
+    // كلمة مرور افتراضية — المستخدم مُجبر على تغييرها عند أول دخول
+    const tempPassword = "123456";
     updateData.password_hash = await bcrypt.hash(tempPassword, 10);
     updateData.must_change_password = true;
 
@@ -145,12 +159,12 @@ export async function importFacilitiesFromExcel(formData: FormData): Promise<{
   const file = formData.get("file") as File | null;
   if (!file) return { error: "لم يتم اختيار ملف" };
 
-  const allowedTypes = [
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel",
-  ];
-  if (!allowedTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+  if (!file.name.match(/\.(xlsx|xls)$/i)) {
     return { error: "يجب أن يكون الملف بصيغة Excel (.xlsx أو .xls)" };
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: "حجم الملف يتجاوز الحد المسموح (10 ميجابايت)" };
   }
 
   const arrayBuffer = await file.arrayBuffer();
@@ -227,21 +241,15 @@ export async function importFacilitiesFromExcel(formData: FormData): Promise<{
   const newFacilities = validRows.filter((r) => !existingUsernames.has(r.username));
   const skipped = validRows.length - newFacilities.length;
 
-  // ── 3. كلمة مرور عشوائية لكل مرفق جديد ─────────────────────────────────
-  const crypto = await import("crypto");
-  const facilityData = await Promise.all(
-    newFacilities.map(async (f) => {
-      const tempPassword = crypto.randomBytes(6).toString("base64url");
-      const password_hash = await bcrypt.hash(tempPassword, 10);
-      return {
-        name: f.name,
-        username: f.username,
-        password_hash,
-        is_admin: false,
-        must_change_password: true,
-      };
-    })
-  );
+  // ── 3. كلمة مرور افتراضية (123456) لكل مرفق جديد — يُجبر على تغييرها ──
+  const defaultPasswordHash = await bcrypt.hash("123456", 10);
+  const facilityData = newFacilities.map((f) => ({
+    name: f.name,
+    username: f.username,
+    password_hash: defaultPasswordHash,
+    is_admin: false,
+    must_change_password: true,
+  }));
 
   // ── 4. إدراج دفعي (createMany) ──────────────────────────────────────────
   let created = 0;

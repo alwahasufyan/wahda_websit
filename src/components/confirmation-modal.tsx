@@ -13,6 +13,7 @@ interface ConfirmationModalProps {
   cancelLabel?: string;
   variant?: "danger" | "warning" | "info";
   isLoading?: boolean;
+  error?: string | null;
 }
 
 export function ConfirmationModal({
@@ -25,17 +26,34 @@ export function ConfirmationModal({
   cancelLabel = "إلغاء",
   variant = "danger",
   isLoading = false,
+  error,
 }: ConfirmationModalProps) {
+  // إغلاق بمفتاح Escape
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isLoading) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
         <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
-        <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+        <p className="text-slate-600 mb-4 text-sm leading-relaxed">
           {description}
         </p>
         
+        {error && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}

@@ -74,6 +74,7 @@ model ImportJob {
   created_by     String
   status         ImportJobStatus @default(PENDING)
   payload        Json
+  skipped_rows_report Json?
   total_rows     Int             @default(0)
   processed_rows Int             @default(0)
   inserted_rows  Int             @default(0)

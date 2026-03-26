@@ -10,6 +10,7 @@ interface Bucket {
 
 // Map<key, Bucket> — لا تحتاج مكتبة خارجية
 const store = new Map<string, Bucket>();
+const MAX_STORE_SIZE = 10_000;
 
 // ── حدود مختلفة حسب نوع العملية ──
 interface RateLimitConfig {
@@ -33,7 +34,11 @@ export function checkRateLimit(key: string, category: string = "login"): string 
   const bucket = store.get(key);
 
   if (!bucket || now >= bucket.resetAt) {
-    // نافذة جديدة
+    // نافذة جديدة — التحقق من حد الذاكرة
+    if (store.size >= MAX_STORE_SIZE) {
+      const oldest = store.entries().next().value;
+      if (oldest) store.delete(oldest[0]);
+    }
     store.set(key, { count: 1, resetAt: now + config.windowMs });
     return null;
   }
@@ -55,12 +60,12 @@ export function resetRateLimit(key: string): void {
   store.delete(key);
 }
 
-// تنظيف تلقائي كل 30 دقيقة لمنع تسرب الذاكرة
+// تنظيف تلقائي كل 5 دقائق لمنع تسرب الذاكرة
 if (typeof setInterval !== "undefined") {
   setInterval(() => {
     const now = Date.now();
     for (const [key, bucket] of store.entries()) {
       if (now >= bucket.resetAt) store.delete(key);
     }
-  }, 30 * 60 * 1000);
+  }, 5 * 60 * 1000);
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button, Input } from "@/components/ui";
+import { Loader2 } from "lucide-react";
 import { updateBeneficiary } from "@/app/actions/beneficiary";
 
 interface BeneficiaryEditModalProps {
@@ -23,23 +24,37 @@ export function BeneficiaryEditModal({ beneficiary }: BeneficiaryEditModalProps)
   const [status, setStatus] = useState<"ACTIVE" | "FINISHED">(beneficiary.status);
   const [error, setError] = useState<string | null>(null);
 
+  // إغلاق بمفتاح Escape
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isPending) setOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, isPending]);
+
   const onSave = () => {
     setError(null);
     startTransition(async () => {
-      const result = await updateBeneficiary({
-        id: beneficiary.id,
-        name,
-        card_number: cardNumber,
-        birth_date: birthDate,
-        status,
-      });
+      try {
+        const result = await updateBeneficiary({
+          id: beneficiary.id,
+          name,
+          card_number: cardNumber,
+          birth_date: birthDate,
+          status,
+        });
 
-      if (result.error) {
-        setError(result.error);
-        return;
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+
+        setOpen(false);
+      } catch {
+        setError("خطأ في الاتصال. حاول مرة أخرى.");
       }
-
-      setOpen(false);
     });
   };
 
@@ -105,6 +120,7 @@ export function BeneficiaryEditModal({ beneficiary }: BeneficiaryEditModalProps)
                 إلغاء
               </Button>
               <Button type="button" className="flex-1" onClick={onSave} disabled={isPending}>
+                {isPending && <Loader2 className="ml-1.5 h-4 w-4 animate-spin" />}
                 {isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
               </Button>
             </div>

@@ -18,19 +18,34 @@ export function BeneficiaryRestoreActions({ id, name, hasTransactions }: Props) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // إغلاق بمفتاح Escape
+  React.useEffect(() => {
+    if (!modal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) setModal(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [modal, loading]);
+
   const handleAction = async () => {
     setLoading(true);
     setError(null);
-    const result =
-      modal === "restore"
-        ? await restoreBeneficiary(id)
-        : await permanentDeleteBeneficiary(id);
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setModal(null);
-      router.refresh();
+    try {
+      const result =
+        modal === "restore"
+          ? await restoreBeneficiary(id)
+          : await permanentDeleteBeneficiary(id);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setModal(null);
+        router.refresh();
+      }
+    } catch {
+      setError("خطأ في الاتصال. حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
     }
   };
 

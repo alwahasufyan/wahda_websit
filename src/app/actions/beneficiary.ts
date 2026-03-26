@@ -114,7 +114,12 @@ export async function updateBeneficiary(data: {
       data: {
         name: payload.name,
         card_number: payload.card_number,
-        birth_date: payload.birth_date ? new Date(payload.birth_date) : null,
+        birth_date: (() => {
+          if (!payload.birth_date) return null;
+          const d = new Date(payload.birth_date);
+          if (isNaN(d.getTime())) return null;
+          return d;
+        })(),
         status: payload.status,
       },
     });

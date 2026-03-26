@@ -66,15 +66,22 @@ export function DeductForm() {
     let cancelled = false;
     const timer = setTimeout(async () => {
       setSuggestionLoading(true);
-      const result = await searchBeneficiaries(q);
-      if (cancelled) return;
-      setSuggestionLoading(false);
-      if (result.error) {
-        setSuggestions([]);
-        return;
+      try {
+        const result = await searchBeneficiaries(q);
+        if (cancelled) return;
+        setSuggestionLoading(false);
+        if (result.error || !Array.isArray(result.items)) {
+          setSuggestions([]);
+          return;
+        }
+        setSuggestions(result.items);
+        setShowSuggestions(true);
+      } catch {
+        if (!cancelled) {
+          setSuggestions([]);
+          setSuggestionLoading(false);
+        }
       }
-      setSuggestions(result.items);
-      setShowSuggestions(true);
     }, 250);
 
     return () => {
@@ -101,7 +108,14 @@ export function DeductForm() {
     setBeneficiary(null);
     setShowConfirm(false);
 
-    const result = await getBeneficiaryByCard(normalizedCard);
+    let result;
+    try {
+      result = await getBeneficiaryByCard(normalizedCard);
+    } catch {
+      setLoading(false);
+      setError("خطأ في الاتصال. حاول مرة أخرى.");
+      return;
+    }
     setLoading(false);
 
     if (result.error) {
@@ -128,11 +142,19 @@ export function DeductForm() {
     setDeducting(true);
     setError(null);
     
-    const result = await deductBalance({
-      card_number: beneficiary.card_number,
-      amount: parseFloat(amount),
-      type,
-    });
+    let result;
+    try {
+      result = await deductBalance({
+        card_number: beneficiary.card_number,
+        amount: parseFloat(amount),
+        type,
+      });
+    } catch {
+      setDeducting(false);
+      setShowConfirm(false);
+      setError("خطأ في الاتصال. حاول مرة أخرى.");
+      return;
+    }
 
     setDeducting(false);
     setShowConfirm(false);

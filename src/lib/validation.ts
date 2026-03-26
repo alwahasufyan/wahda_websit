@@ -22,10 +22,8 @@ export const createFacilitySchema = z.object({
     .regex(/^[a-z0-9_]+$/, "اسم المستخدم يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط"),
   password: z
     .string()
-    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
-    .max(128, "كلمة المرور طويلة جداً")
-    .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير على الأقل")
-    .regex(/[0-9]/, "يجب أن تحتوي على رقم على الأقل"),
+    .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل")
+    .max(128, "كلمة المرور طويلة جداً"),
 });
 
 export const updateFacilitySchema = z.object({
@@ -41,8 +39,10 @@ export const updateFacilitySchema = z.object({
 export const changePasswordSchema = z.object({
   newPassword: z
     .string()
-    .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل")
-    .max(128, "كلمة المرور طويلة جداً"),
+    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+    .max(128, "كلمة المرور طويلة جداً")
+    .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير على الأقل")
+    .regex(/[0-9]/, "يجب أن تحتوي على رقم على الأقل"),
   confirmPassword: z.string().min(1, "تأكيد كلمة المرور مطلوب").max(128, "كلمة المرور طويلة جداً"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "كلمتا المرور غير متطابقتين",
@@ -53,8 +53,10 @@ export const voluntaryChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "كلمة المرور الحالية مطلوبة").max(128, "كلمة المرور طويلة جداً"),
   newPassword: z
     .string()
-    .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل")
-    .max(128, "كلمة المرور طويلة جداً"),
+    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+    .max(128, "كلمة المرور طويلة جداً")
+    .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير على الأقل")
+    .regex(/[0-9]/, "يجب أن تحتوي على رقم على الأقل"),
   confirmPassword: z.string().min(1, "تأكيد كلمة المرور مطلوب").max(128, "كلمة المرور طويلة جداً"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "كلمتا المرور غير متطابقتين",

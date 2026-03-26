@@ -18,16 +18,31 @@ export function BeneficiaryDeleteButton({ id, name, hasTransactions }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // إغلاق بمفتاح Escape
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) setOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, loading]);
+
   const handleDelete = async () => {
     setLoading(true);
     setError(null);
-    const result = await deleteBeneficiary(id);
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setOpen(false);
-      router.refresh();
+    try {
+      const result = await deleteBeneficiary(id);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setOpen(false);
+        router.refresh();
+      }
+    } catch {
+      setError("خطأ في الاتصال. حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
     }
   };
 

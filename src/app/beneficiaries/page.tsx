@@ -20,7 +20,7 @@ export default async function BeneficiariesPage({
   if (!session.is_admin) redirect("/dashboard");
 
   const { q, page: pageParam, pageSize: pageSizeParam, view } = await searchParams;
-  const query = q?.trim() ?? "";
+  const query = (q?.trim() ?? "").slice(0, 100);
   const isDeletedView = view === "deleted";
   const allowedPageSizes = [10, 25, 50, 100, 200];
   const requestedPageSize = parseInt(pageSizeParam ?? "10", 10);
