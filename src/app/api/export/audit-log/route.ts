@@ -1,0 +1,218 @@
+import { NextRequest, NextResponse } from "next/server";
+import ExcelJS from "exceljs";
+import { requireActiveFacilitySession } from "@/lib/session-guard";
+import { checkRateLimit } from "@/lib/rate-limit";
+import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+
+type TargetFilter = "all" | "beneficiaries" | "transactions" | "facilities";
+
+const EXPORT_LIMIT = 50_000;
+
+const TARGET_ACTIONS: Record<TargetFilter, string[]> = {
+  all: [
+    "CREATE_BENEFICIARY",
+    "IMPORT_BENEFICIARIES_BACKGROUND",
+    "DELETE_BENEFICIARY",
+    "PERMANENT_DELETE_BENEFICIARY",
+    "RESTORE_BENEFICIARY",
+    "DEDUCT_BALANCE",
+    "CANCEL_TRANSACTION",
+    "REVERT_CANCELLATION",
+    "IMPORT_TRANSACTIONS",
+    "CREATE_FACILITY",
+    "IMPORT_FACILITIES",
+    "DELETE_FACILITY",
+  ],
+  beneficiaries: [
+    "CREATE_BENEFICIARY",
+    "IMPORT_BENEFICIARIES_BACKGROUND",
+    "DELETE_BENEFICIARY",
+    "PERMANENT_DELETE_BENEFICIARY",
+    "RESTORE_BENEFICIARY",
+  ],
+  transactions: ["DEDUCT_BALANCE", "CANCEL_TRANSACTION", "REVERT_CANCELLATION", "IMPORT_TRANSACTIONS"],
+  facilities: ["CREATE_FACILITY", "IMPORT_FACILITIES", "DELETE_FACILITY"],
+};
+
+function actionLabel(action: string) {
+  switch (action) {
+    case "CREATE_BENEFICIARY":
+      return "إضافة مستفيد";
+    case "IMPORT_BENEFICIARIES_BACKGROUND":
+      return "استيراد مستفيدين";
+    case "DELETE_BENEFICIARY":
+      return "حذف مستفيد";
+    case "PERMANENT_DELETE_BENEFICIARY":
+      return "حذف نهائي لمستفيد";
+    case "RESTORE_BENEFICIARY":
+      return "استرجاع مستفيد";
+    case "DEDUCT_BALANCE":
+      return "إضافة حركة خصم";
+    case "CANCEL_TRANSACTION":
+      return "حذف/إلغاء حركة";
+    case "REVERT_CANCELLATION":
+      return "استرجاع حركة ملغاة";
+    case "IMPORT_TRANSACTIONS":
+      return "استيراد حركات";
+    case "CREATE_FACILITY":
+      return "إضافة مرفق";
+    case "IMPORT_FACILITIES":
+      return "استيراد مرافق";
+    case "DELETE_FACILITY":
+      return "حذف مرفق";
+    default:
+      return action;
+  }
+}
+
+function summarizeMetadata(action: string, metadata: unknown): string {
+  if (!metadata || typeof metadata !== "object") return "-";
+  const m = metadata as Record<string, unknown>;
+
+  if (action === "CREATE_BENEFICIARY" || action === "UPDATE_BENEFICIARY") {
+    return `بطاقة: ${String(m.card_number ?? "-")}`;
+  }
+
+  if (action === "DELETE_BENEFICIARY" || action === "PERMANENT_DELETE_BENEFICIARY" || action === "RESTORE_BENEFICIARY") {
+    return `مستفيد: ${String(m.beneficiary_id ?? "-")}`;
+  }
+
+  if (action === "DEDUCT_BALANCE") {
+    return `بطاقة: ${String(m.card_number ?? "-")} · مبلغ: ${String(m.amount ?? "-")}`;
+  }
+
+  if (action === "IMPORT_BENEFICIARIES_BACKGROUND") {
+    return `تمت إضافة: ${String(m.inserted_rows ?? "-")} · مكررة: ${String(m.duplicate_rows ?? "-")}`;
+  }
+
+  if (action === "CANCEL_TRANSACTION") {
+    return `حركة: ${String(m.original_transaction_id ?? "-")} · مبلغ مرتجع: ${String(m.refunded_amount ?? "-")}`;
+  }
+
+  if (action === "REVERT_CANCELLATION") {
+    return `إلغاء: ${String(m.cancellation_transaction_id ?? "-")} · حركة أصلية: ${String(m.original_transaction_id ?? "-")}`;
+  }
+
+  if (action === "IMPORT_TRANSACTIONS") {
+    return `تمت إضافة: ${String(m.added ?? "-")} · متخطاة: ${String(m.skipped ?? "-")}`;
+  }
+
+  if (action === "CREATE_FACILITY") {
+    return `مرفق: ${String(m.name ?? "-")} · مستخدم: ${String(m.new_facility_username ?? "-")}`;
+  }
+
+  if (action === "IMPORT_FACILITIES") {
+    return `تمت إضافة: ${String(m.created ?? "-")} · متخطاة: ${String(m.skipped ?? "-")}`;
+  }
+
+  if (action === "DELETE_FACILITY") {
+    return `معرف المرفق: ${String(m.deleted_facility_id ?? "-")}`;
+  }
+
+  return "-";
+}
+
+export async function GET(request: NextRequest) {
+  const session = await requireActiveFacilitySession();
+  if (!session) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+  if (!session.is_admin) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  const rateLimitError = await checkRateLimit(`api:${session.id}`, "api");
+  if (rateLimitError) {
+    return NextResponse.json({ error: rateLimitError }, { status: 429 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const targetParam = searchParams.get("target");
+  const actor = searchParams.get("actor")?.trim() ?? "";
+  const startDate = searchParams.get("start_date");
+  const endDate = searchParams.get("end_date");
+
+  const target: TargetFilter =
+    targetParam === "beneficiaries" || targetParam === "transactions" || targetParam === "facilities"
+      ? targetParam
+      : "all";
+
+  const createdAtFilter: { gte?: Date; lte?: Date } = {};
+  if (startDate) {
+    const d = new Date(startDate);
+    if (!isNaN(d.getTime())) createdAtFilter.gte = d;
+  }
+  if (endDate) {
+    const d = new Date(endDate);
+    if (!isNaN(d.getTime())) {
+      d.setHours(23, 59, 59, 999);
+      createdAtFilter.lte = d;
+    }
+  }
+
+  const where = {
+    action: { in: TARGET_ACTIONS[target] },
+    ...(actor ? { user: { contains: actor, mode: "insensitive" as const } } : {}),
+    ...(Object.keys(createdAtFilter).length > 0 ? { created_at: createdAtFilter } : {}),
+  };
+
+  try {
+    const rows = await prisma.auditLog.findMany({
+      where,
+      orderBy: { created_at: "desc" },
+      take: EXPORT_LIMIT,
+      select: {
+        id: true,
+        user: true,
+        action: true,
+        metadata: true,
+        created_at: true,
+      },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("AuditLog");
+    worksheet.views = [{ rightToLeft: true }];
+
+    worksheet.columns = [
+      { header: "#", key: "index", width: 8 },
+      { header: "العملية", key: "action", width: 24 },
+      { header: "المنفذ", key: "user", width: 20 },
+      { header: "التفاصيل", key: "details", width: 60 },
+      { header: "التاريخ", key: "date", width: 18 },
+      { header: "الوقت", key: "time", width: 14 },
+      { header: "معرّف السجل", key: "id", width: 34 },
+    ];
+
+    worksheet.getRow(1).font = { bold: true, size: 12 };
+    worksheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
+
+    rows.forEach((row, idx) => {
+      const created = new Date(row.created_at);
+      worksheet.addRow({
+        index: idx + 1,
+        action: actionLabel(row.action),
+        user: row.user,
+        details: summarizeMetadata(row.action, row.metadata),
+        date: created.toLocaleDateString("en-GB"),
+        time: created.toLocaleTimeString("en-GB"),
+        id: row.id,
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    return new NextResponse(Buffer.from(buffer as ArrayBuffer), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="audit-log-report.xlsx"',
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error) {
+    logger.error("Audit log export failed", { error: String(error) });
+    return new NextResponse("Failed to generate report", { status: 500 });
+  }
+}

@@ -20,7 +20,7 @@ export async function authenticate(prevState: unknown, formData: FormData) {
   let stage = "validate";
 
   // فحص Rate Limiting قبل أي استعلام للقاعدة
-  const rateLimitError = checkRateLimit(`login:${username}`);
+  const rateLimitError = await checkRateLimit(`login:${username}`);
   if (rateLimitError) {
     return { error: rateLimitError };
   }
@@ -44,7 +44,7 @@ export async function authenticate(prevState: unknown, formData: FormData) {
     }
 
     // تسجيل دخول ناجح — إعادة تعيين العداد
-    resetRateLimit(`login:${username}`);
+    await resetRateLimit(`login:${username}`);
 
     // تسجيل الحدث في سجل المراجعة
     stage = "audit-login";

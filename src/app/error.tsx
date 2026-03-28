@@ -3,21 +3,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 
-function reportError(error: Error & { digest?: string }) {
-  try {
-    fetch("/api/client-error", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: error.message,
-        stack: error.stack,
-        digest: error.digest,
-        url: window.location.href,
-      }),
-    }).catch(() => {/* ignore send failures */});
-  } catch {/* ignore */}
-}
-
 export default function Error({
   error,
   reset,
@@ -29,7 +14,6 @@ export default function Error({
 
   useEffect(() => {
     console.error("Page error:", error);
-    reportError(error);
   }, [error]);
 
   return (
@@ -37,7 +21,7 @@ export default function Error({
       <div className="text-center max-w-lg">
         <h2 className="text-xl font-bold text-slate-900 mb-3">حدث خطأ غير متوقع</h2>
         <p className="text-sm text-slate-500 mb-6">
-          نعتذر عن هذا الخطأ. تم إرسال تقرير تلقائي لفريق الدعم.
+          نعتذر عن هذا الخطأ. يمكنك إعادة المحاولة أو مراجعة التفاصيل.
         </p>
         <div className="flex gap-2 justify-center flex-wrap">
           <Button onClick={() => reset()}>إعادة المحاولة</Button>

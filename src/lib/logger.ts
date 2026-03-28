@@ -7,7 +7,18 @@ interface LogEntry {
   context?: Record<string, unknown>;
 }
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 function formatLog(entry: LogEntry): string {
+  if (IS_PRODUCTION) {
+    // JSON منظم لأدوات تجميع السجلات (Loki, ELK, CloudWatch, etc.)
+    return JSON.stringify({
+      level: entry.level,
+      msg: entry.message,
+      ts: entry.timestamp,
+      ...entry.context,
+    });
+  }
   const ctx = entry.context ? ` ${JSON.stringify(entry.context)}` : "";
   return `[${entry.timestamp}] ${entry.level.toUpperCase()} ${entry.message}${ctx}`;
 }

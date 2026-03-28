@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, TransactionType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import ExcelJS from "exceljs";
 
@@ -117,8 +117,11 @@ export async function processTransactionImport(
 ): Promise<{ result?: TransactionImportResult; error?: string }> {
   // 1. Parse file
   const workbook = new ExcelJS.Workbook();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await workbook.xlsx.load(fileBuffer as any);
+  const fileArrayBuffer = fileBuffer.buffer.slice(
+    fileBuffer.byteOffset,
+    fileBuffer.byteOffset + fileBuffer.byteLength,
+  ) as ArrayBuffer;
+  await workbook.xlsx.load(fileArrayBuffer);
   const rows = parseExcelRows(workbook);
 
   if (rows.length === 0) {
@@ -187,7 +190,7 @@ export async function processTransactionImport(
   let skippedAlreadyImported = 0;
 
   for (const { row, baseCard } of toImport) {
-    const familyResult = await importFamilyTransactions(baseCard, row.usedBalance, row.familyCount);
+    const familyResult = await importFamilyTransactions(baseCard, row.usedBalance);
 
     if (familyResult === "already_imported") {
       skippedAlreadyImported++;
@@ -239,7 +242,6 @@ export async function processTransactionImport(
 async function importFamilyTransactions(
   baseCard: string,
   totalUsedAmount: number,
-  _excelFamilyCount: number,
 ): Promise<"already_imported" | { count: number }> {
   // Find ALL family members (base card + suffixes like W1, S1, D1, etc.)
   const familyMembers = await prisma.beneficiary.findMany({
@@ -256,11 +258,10 @@ async function importFamilyTransactions(
   }
 
   // Check if any IMPORT transaction already exists for the base member
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existingImport = await prisma.transaction.findFirst({
     where: {
       beneficiary_id: familyMembers[0].id,
-      type: "IMPORT" as any,
+      type: TransactionType.IMPORT,
       facility_id: WAAD_FACILITY_ID,
     },
   });
@@ -298,8 +299,7 @@ async function importFamilyTransactions(
           beneficiary_id: member.id,
           facility_id: WAAD_FACILITY_ID,
           amount: deductAmount,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          type: "IMPORT" as any,
+          type: TransactionType.IMPORT,
         },
       });
 

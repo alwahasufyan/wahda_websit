@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Search, Users, CalendarDays, CreditCard, Trash2, RotateCcw } from "lucide-react";
+import { Search, Users, CalendarDays, CreditCard, Trash2, RotateCcw, Upload, Download } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -7,8 +7,10 @@ import { Shell } from "@/components/shell";
 import { Card, Badge } from "@/components/ui";
 import { BeneficiariesSearch } from "@/components/beneficiaries-search";
 import { BeneficiaryEditModal } from "@/components/beneficiary-edit-modal";
+import { BeneficiaryCreateModal } from "@/components/beneficiary-create-modal";
 import { BeneficiaryDeleteButton } from "@/components/beneficiary-delete-button";
 import { BeneficiaryRestoreActions } from "@/components/beneficiary-restore-actions";
+import { BeneficiaryResetPinButton } from "@/components/beneficiary-reset-pin-button";
 
 export default async function BeneficiariesPage({
   searchParams,
@@ -83,6 +85,10 @@ export default async function BeneficiariesPage({
   }
 
   const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const exportParams = new URLSearchParams();
+  if (query) exportParams.set("q", query);
+  if (isDeletedView) exportParams.set("view", "deleted");
+  const exportHref = `/api/export/beneficiaries?${exportParams.toString()}`;
 
   return (
     <Shell facilityName={session.name} isAdmin={session.is_admin}>
@@ -93,8 +99,26 @@ export default async function BeneficiariesPage({
             <p className="mt-1.5 text-sm text-slate-600">نافذة مخصصة لعرض المستفيدين والبحث بالاسم أو رقم البطاقة.</p>
           </div>
 
-          <div className="w-full lg:max-w-md">
-            <BeneficiariesSearch initialQuery={query} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              href="/import"
+              className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
+            >
+              <Upload className="h-4 w-4" />
+              الاستيراد
+            </Link>
+            <a
+              href={exportHref}
+              target="_blank"
+              className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-emerald-600 px-4 text-sm font-black text-white! transition-colors hover:bg-emerald-700"
+            >
+              <Download className="h-4 w-4" />
+              تصدير Excel
+            </a>
+            <BeneficiaryCreateModal />
+            <div className="w-full sm:w-80 lg:w-96">
+              <BeneficiariesSearch key={query} initialQuery={query} />
+            </div>
           </div>
         </div>
 
@@ -236,6 +260,7 @@ export default async function BeneficiariesPage({
                               />
                             ) : (
                               <>
+                                {beneficiary.pin_hash && <BeneficiaryResetPinButton beneficiaryId={beneficiary.id} />}
                                 <BeneficiaryEditModal
                                   beneficiary={{
                                     id: beneficiary.id,

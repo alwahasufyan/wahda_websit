@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Building2, Plus, User, CheckCircle2, Download } from "lucide-react";
+import { User, Download } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -16,13 +16,13 @@ const PAGE_SIZE = 8;
 export default async function FacilitiesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; page?: string; created?: string };
+  searchParams: { q?: string; page?: string };
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (!session.is_admin) redirect("/dashboard");
 
-  const { q, page: pageParam, created } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   const where = {
@@ -101,7 +101,7 @@ export default async function FacilitiesPage({
             <a
               href="/api/export/facilities"
               target="_blank"
-              className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-black !text-white transition-colors hover:bg-emerald-700 h-10"
+              className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-black text-white! transition-colors hover:bg-emerald-700 h-10"
             >
               <Download className="h-4 w-4" />
               تصدير Excel
@@ -109,13 +109,6 @@ export default async function FacilitiesPage({
             <PrintButton />
           </div>
         </div>
-
-        {created && (
-          <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 print:hidden">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            تم إنشاء حساب &quot;{created}&quot; بنجاح — كلمة المرور الافتراضية: <span dir="ltr" className="font-black">123456</span>
-          </div>
-        )}
 
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
           {/* قائمة المرافق */}

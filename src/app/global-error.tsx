@@ -2,21 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-function reportError(error: Error & { digest?: string }) {
-  try {
-    fetch("/api/client-error", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: error.message,
-        stack: error.stack,
-        digest: error.digest,
-        url: window.location.href,
-      }),
-    }).catch(() => {/* ignore send failures */});
-  } catch {/* ignore */}
-}
-
 export default function GlobalError({
   error,
   reset,
@@ -28,7 +13,6 @@ export default function GlobalError({
 
   useEffect(() => {
     console.error("Global error:", error);
-    reportError(error);
   }, [error]);
 
   return (
@@ -48,7 +32,7 @@ export default function GlobalError({
               حدث خطأ غير متوقع
             </h2>
             <p style={{ fontSize: "0.875rem", color: "#64748b", marginBottom: "1.5rem" }}>
-              نعتذر عن هذا الخطأ. تم إرسال تقرير تلقائي لفريق الدعم.
+              نعتذر عن هذا الخطأ. يمكنك إعادة المحاولة أو مراجعة التفاصيل.
             </p>
             <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
               <button

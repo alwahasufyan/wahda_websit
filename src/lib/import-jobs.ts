@@ -34,7 +34,7 @@ type PreparedImportRow = {
   rowNumber: number | null;
 };
 
-type SkippedImportReason = "invalid_row" | "missing_required_fields" | "duplicate_in_file" | "already_exists";
+type SkippedImportReason = "invalid_row" | "missing_required_fields" | "duplicate_in_file" | "already_exists" | "duplicate_person";
 
 type SkippedImportRowReport = {
   rowNumber: number | null;
@@ -52,6 +52,15 @@ function normalizeString(value: unknown) {
   }
 
   return value.trim();
+}
+
+function normalizePersonName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+function personKey(name: string, birthDate: Date | null) {
+  if (!birthDate) return null;
+  return `${normalizePersonName(name)}|${birthDate.toISOString().slice(0, 10)}`;
 }
 
 function normalizeDateOnly(date: Date) {
@@ -74,6 +83,8 @@ function getSkippedReasonLabel(reason: SkippedImportReason) {
       return "مكرر داخل الملف نفسه";
     case "already_exists":
       return "رقم البطاقة موجود مسبقاً في النظام";
+    case "duplicate_person":
+      return "المستفيد نفسه (الاسم وتاريخ الميلاد) موجود مسبقاً";
     default:
       return "غير معروف";
   }
@@ -85,7 +96,8 @@ function getRowNumber(row: Record<string, unknown>) {
 }
 
 function sanitizeRawRow(row: Record<string, unknown>) {
-  const { __rowNumber, ...rest } = row;
+  const rest = { ...row };
+  delete rest.__rowNumber;
   return rest;
 }
 
@@ -182,7 +194,7 @@ function normalizeImportRow(row: unknown): { data?: NormalizedImportRow; error?:
     return { error: "invalid_row" };
   }
 
-  const cardNumber = normalizeString(getField(parsed.data, "card_number", "رقم البطاقة", "رقم_البطاقة", "الرقم"));
+  const cardNumber = normalizeString(getField(parsed.data, "card_number", "رقم البطاقة", "رقم_البطاقة", "الرقم")).toUpperCase();
   const name = normalizeString(getField(parsed.data, "name", "الاسم", "اسم المستفيد", "اسم_المستفيد"));
   if (!cardNumber || !name) {
     return { error: "missing_required_fields" };
@@ -317,6 +329,7 @@ export async function processImportJob(jobId: string, username: string) {
     const payload = Array.isArray(currentJob.payload) ? currentJob.payload : [];
     const uniqueRows: PreparedImportRow[] = [];
     const seenCards = new Set<string>();
+    const seenPersons = new Set<string>();
 
     let processedRows = 0;
     let duplicateRows = 0;
@@ -352,7 +365,21 @@ export async function processImportJob(jobId: string, username: string) {
         continue;
       }
 
+      const pKey = personKey(normalized.data.name, normalized.data.birth_date);
+      if (pKey && seenPersons.has(pKey)) {
+        duplicateRows += 1;
+        processedRows += 1;
+        skippedRows.push(createSkippedRowReport({
+          reason: "duplicate_person",
+          rowNumber,
+          rawRow,
+          normalized: normalized.data,
+        }));
+        continue;
+      }
+
       seenCards.add(normalized.data.card_number);
+      if (pKey) seenPersons.add(pKey);
       uniqueRows.push({
         data: normalized.data,
         rawRow,
@@ -370,24 +397,66 @@ export async function processImportJob(jobId: string, username: string) {
     });
 
     for (const chunk of chunkRows(uniqueRows, 100)) {
-      const cardNumbers = chunk.map((row) => row.data.card_number);
-      const existing = await prisma.beneficiary.findMany({
-        where: {
-          card_number: { in: cardNumbers },
-          deleted_at: null,
-        },
-        select: {
-          card_number: true,
-        },
+      const normalizedCardNumbers = [...new Set(chunk.map((row) => row.data.card_number.trim().toUpperCase()))];
+      const existing = await prisma.$queryRaw<Array<{ normalized_card_number: string }>>`
+        SELECT UPPER(BTRIM("card_number")) AS normalized_card_number
+        FROM "Beneficiary"
+        WHERE UPPER(BTRIM("card_number")) IN (${Prisma.join(normalizedCardNumbers)})
+      `;
+
+      const birthDateByTime = new Map<number, Date>();
+      chunk.forEach((row) => {
+        if (row.data.birth_date) {
+          birthDateByTime.set(row.data.birth_date.getTime(), row.data.birth_date);
+        }
+      });
+      const birthDates = [...birthDateByTime.values()];
+
+      const existingPersons = birthDates.length > 0
+        ? await prisma.beneficiary.findMany({
+            where: {
+              deleted_at: null,
+              birth_date: { in: birthDates },
+            },
+            select: {
+              name: true,
+              birth_date: true,
+            },
+          })
+        : [];
+
+      const existingCards = new Set(existing.map((item) => item.normalized_card_number));
+      const existingPersonKeys = new Set(
+        existingPersons
+          .map((row) => personKey(row.name, row.birth_date))
+          .filter((key): key is string => Boolean(key))
+      );
+
+      const rowsToInsert = chunk.filter((row) => {
+        const hasCardDuplicate = existingCards.has(row.data.card_number.trim().toUpperCase());
+        if (hasCardDuplicate) return false;
+
+        const pKey = personKey(row.data.name, row.data.birth_date);
+        if (pKey && existingPersonKeys.has(pKey)) return false;
+
+        return true;
       });
 
-      const existingCards = new Set(existing.map((item) => item.card_number));
-      const rowsToInsert = chunk.filter((row) => !existingCards.has(row.data.card_number));
-
       chunk.forEach((row) => {
-        if (existingCards.has(row.data.card_number)) {
+        if (existingCards.has(row.data.card_number.trim().toUpperCase())) {
           skippedRows.push(createSkippedRowReport({
             reason: "already_exists",
+            rowNumber: row.rowNumber,
+            rawRow: row.rawRow,
+            normalized: row.data,
+          }));
+          return;
+        }
+
+        const pKey = personKey(row.data.name, row.data.birth_date);
+        if (pKey && existingPersonKeys.has(pKey)) {
+          skippedRows.push(createSkippedRowReport({
+            reason: "duplicate_person",
             rowNumber: row.rowNumber,
             rawRow: row.rawRow,
             normalized: row.data,
@@ -408,8 +477,10 @@ export async function processImportJob(jobId: string, username: string) {
             remaining_balance: INITIAL_BALANCE,
             status: "ACTIVE" as const,
           })),
+          skipDuplicates: true,
         });
         insertedRows += result.count;
+        duplicateRows += rowsToInsert.length - result.count;
       }
 
       await prisma.importJob.update({

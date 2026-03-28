@@ -31,7 +31,17 @@ export function DeductForm() {
   const [loading, setLoading] = useState(false);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<BeneficiarySuggestion[]>([]);
-  const [recentBeneficiaries, setRecentBeneficiaries] = useState<BeneficiarySuggestion[]>([]);
+  const [recentBeneficiaries, setRecentBeneficiaries] = useState<BeneficiarySuggestion[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(RECENT_BENEFICIARIES_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as BeneficiarySuggestion[];
+      return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [deducting, setDeducting] = useState(false);
   const [beneficiary, setBeneficiary] = useState<Beneficiary | null>(null);
@@ -58,19 +68,6 @@ export function DeductForm() {
     setError(null);
     setSuccess(null);
   };
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(RECENT_BENEFICIARIES_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as BeneficiarySuggestion[];
-      if (Array.isArray(parsed)) {
-        setRecentBeneficiaries(parsed.slice(0, 5));
-      }
-    } catch {
-      // تجاهل أي بيانات محلية غير صالحة
-    }
-  }, []);
 
   useEffect(() => {
     try {
@@ -102,8 +99,6 @@ export function DeductForm() {
   useEffect(() => {
     const q = searchInput.trim();
     if (q.length < 2) {
-      setSuggestions([]);
-      setSuggestionLoading(false);
       return;
     }
 
@@ -240,10 +235,17 @@ export function DeductForm() {
             <Input
               value={searchInput}
               onChange={(e) => {
-                setSearchInput(e.target.value);
-                setCardNumber(e.target.value);
+                const nextValue = e.target.value;
+                setSearchInput(nextValue);
+                setCardNumber(nextValue);
                 setError(null);
-                setShowSuggestions(true);
+                if (nextValue.trim().length < 2) {
+                  setSuggestions([]);
+                  setSuggestionLoading(false);
+                  setShowSuggestions(false);
+                } else {
+                  setShowSuggestions(true);
+                }
               }}
               onFocus={() => searchInput.trim().length >= 2 && setShowSuggestions(true)}
               placeholder="أدخل رقم البطاقة أو اسم المستفيد"

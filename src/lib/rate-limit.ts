@@ -1,7 +1,9 @@
 /**
- * In-memory rate limiter — مناسب للنشر الفردي (single instance).
- * يتتبع عدد المحاولات لكل مفتاح خلال نافذة زمنية محددة.
+ * Redis-backed rate limiter مع fallback داخل الذاكرة.
+ * يضمن حد موحد عبر جميع instances عند توفر Redis.
  */
+
+import { getRedisPublisherClient } from "@/lib/redis";
 
 interface Bucket {
   count: number;
@@ -27,9 +29,15 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
 
 const DEFAULT_CONFIG: RateLimitConfig = { windowMs: 15 * 60 * 1000, maxAttempts: 10 };
 
-/** يُرجع null إذا مسموح، أو رسالة خطأ إذا تجاوز الحد */
-export function checkRateLimit(key: string, category: string = "login"): string | null {
-  const config = RATE_LIMITS[category] ?? DEFAULT_CONFIG;
+function formatRateLimitMessage(remainingSec: number): string {
+  if (remainingSec > 60) {
+    const remainingMinutes = Math.ceil(remainingSec / 60);
+    return `تم تجاوز الحد المسموح به. يرجى المحاولة بعد ${remainingMinutes} دقيقة.`;
+  }
+  return `تم تجاوز الحد المسموح به. يرجى المحاولة بعد ${remainingSec} ثانية.`;
+}
+
+function checkRateLimitInMemory(key: string, config: RateLimitConfig): string | null {
   const now = Date.now();
   const bucket = store.get(key);
 
@@ -44,20 +52,56 @@ export function checkRateLimit(key: string, category: string = "login"): string 
   }
 
   if (bucket.count >= config.maxAttempts) {
-    const remainingSec = Math.ceil((bucket.resetAt - now) / 1000);
-    if (remainingSec > 60) {
-      const remainingMinutes = Math.ceil(remainingSec / 60);
-      return `تم تجاوز الحد المسموح به. يرجى المحاولة بعد ${remainingMinutes} دقيقة.`;
-    }
-    return `تم تجاوز الحد المسموح به. يرجى المحاولة بعد ${remainingSec} ثانية.`;
+    const remainingSec = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+    return formatRateLimitMessage(remainingSec);
   }
 
   bucket.count += 1;
   return null;
 }
 
-export function resetRateLimit(key: string): void {
+/** يُرجع null إذا مسموح، أو رسالة خطأ إذا تجاوز الحد */
+export async function checkRateLimit(key: string, category: string = "login"): Promise<string | null> {
+  const config = RATE_LIMITS[category] ?? DEFAULT_CONFIG;
+
+  const redis = await getRedisPublisherClient();
+  if (redis) {
+    try {
+      const redisKey = `rate-limit:${category}:${key}`;
+      const count = await redis.incr(redisKey);
+
+      if (count === 1) {
+        await redis.pExpire(redisKey, config.windowMs);
+      }
+
+      if (count > config.maxAttempts) {
+        const ttlMs = await redis.pTTL(redisKey);
+        const remainingSec = Math.max(1, Math.ceil((ttlMs > 0 ? ttlMs : config.windowMs) / 1000));
+        return formatRateLimitMessage(remainingSec);
+      }
+
+      return null;
+    } catch {
+      // fallback
+    }
+  }
+
+  return checkRateLimitInMemory(key, config);
+}
+
+export async function resetRateLimit(key: string, category: string = "login"): Promise<void> {
   store.delete(key);
+
+  const redis = await getRedisPublisherClient();
+  if (!redis) {
+    return;
+  }
+
+  try {
+    await redis.del(`rate-limit:${category}:${key}`);
+  } catch {
+    // best effort
+  }
 }
 
 // تنظيف تلقائي كل 5 دقائق لمنع تسرب الذاكرة

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useActionState } from "react";
+import Link from "next/link";
 import { authenticate } from "@/app/actions/auth";
 import { Button, Input, Card } from "@/components/ui";
 import { Loader2, Lock, ShieldCheck, User } from "lucide-react";
@@ -73,6 +74,13 @@ export default function LoginPage() {
             </Button>
           </form>
         </Card>
+
+        <Link
+          href="/beneficiary/login"
+          className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-md border border-primary/25 bg-primary-light text-sm font-black text-primary transition hover:bg-primary/10"
+        >
+          تسجيل كمستفيد
+        </Link>
 
         <div className="mt-4 rounded-md border border-slate-200 bg-white p-3 text-center text-xs text-slate-500">
           <div className="mb-1 flex items-center justify-center gap-2">

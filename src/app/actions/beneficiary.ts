@@ -3,8 +3,24 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { updateBeneficiarySchema } from "@/lib/validation";
+import { updateBeneficiarySchema, createBeneficiarySchema } from "@/lib/validation";
+import { INITIAL_BALANCE } from "@/lib/config";
 import { revalidatePath } from "next/cache";
+
+function normalizeCardNumber(value: string) {
+  return value.trim().toUpperCase();
+}
+
+function normalizePersonName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function parseBirthDate(value?: string) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
 
 export async function getBeneficiaryByCard(card_number: string) {
   const session = await getSession();
@@ -12,16 +28,21 @@ export async function getBeneficiaryByCard(card_number: string) {
     return { error: "غير مصرح" };
   }
 
-  if (!card_number || card_number.length > 50) {
+  const normalizedCardNumber = normalizeCardNumber(card_number);
+
+  if (!normalizedCardNumber || normalizedCardNumber.length > 50) {
     return { error: "رقم البطاقة غير صالح" };
   }
 
-  const rateLimitError = checkRateLimit(`search:${session.id}`, "search");
+  const rateLimitError = await checkRateLimit(`search:${session.id}`, "search");
   if (rateLimitError) return { error: rateLimitError };
 
   try {
     const beneficiary = await prisma.beneficiary.findFirst({
-      where: { card_number, deleted_at: null },
+      where: {
+        card_number: { equals: normalizedCardNumber, mode: "insensitive" },
+        deleted_at: null,
+      },
     });
 
     if (!beneficiary) {
@@ -46,7 +67,7 @@ export async function searchBeneficiaries(query: string) {
     return { error: "غير مصرح", items: [] as Array<{ id: string; name: string; card_number: string; remaining_balance: number; status: string }> };
   }
 
-  const rateLimitError = checkRateLimit(`search:${session.id}`, "search");
+  const rateLimitError = await checkRateLimit(`search:${session.id}`, "search");
   if (rateLimitError) return { error: rateLimitError, items: [] as Array<{ id: string; name: string; card_number: string; remaining_balance: number; status: string }> };
 
   const q = query.trim();
@@ -85,6 +106,84 @@ export async function searchBeneficiaries(query: string) {
   }
 }
 
+export async function createBeneficiary(data: {
+  name: string;
+  card_number: string;
+  birth_date?: string;
+}) {
+  const session = await getSession();
+  if (!session || !session.is_admin) {
+    return { error: "غير مصرح بهذه العملية" };
+  }
+
+  const parsed = createBeneficiarySchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const payload = parsed.data;
+  const normalizedCardNumber = normalizeCardNumber(payload.card_number);
+  const normalizedName = normalizePersonName(payload.name);
+  const parsedBirthDate = parseBirthDate(payload.birth_date);
+
+  try {
+    const existing = await prisma.beneficiary.findFirst({
+      where: {
+        card_number: { equals: normalizedCardNumber, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return { error: "رقم البطاقة مستخدم مسبقاً ولا يمكن استخدامه لشخص آخر" };
+    }
+
+    if (parsedBirthDate) {
+      const existingPerson = await prisma.beneficiary.findFirst({
+        where: {
+          deleted_at: null,
+          name: { equals: normalizedName, mode: "insensitive" },
+          birth_date: parsedBirthDate,
+        },
+        select: { id: true, card_number: true },
+      });
+
+      if (existingPerson) {
+        return { error: "هذا المستفيد (نفس الاسم وتاريخ الميلاد) مسجل مسبقاً برقم بطاقة آخر" };
+      }
+    }
+
+    const beneficiary = await prisma.beneficiary.create({
+      data: {
+        name: normalizedName,
+        card_number: normalizedCardNumber,
+        birth_date: parsedBirthDate,
+        total_balance: INITIAL_BALANCE,
+        remaining_balance: INITIAL_BALANCE,
+        status: "ACTIVE",
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        facility_id: session.id,
+        user: session.username,
+        action: "CREATE_BENEFICIARY",
+        metadata: {
+          beneficiary_id: beneficiary.id,
+          card_number: normalizedCardNumber,
+        },
+      },
+    });
+
+    revalidatePath("/beneficiaries");
+    revalidatePath("/deduct");
+    return { success: true };
+  } catch {
+    return { error: "تعذر إنشاء المستفيد" };
+  }
+}
+
 export async function updateBeneficiary(data: {
   id: string;
   name: string;
@@ -103,29 +202,45 @@ export async function updateBeneficiary(data: {
   }
 
   const payload = parsed.data;
+  const normalizedCardNumber = normalizeCardNumber(payload.card_number);
+  const normalizedName = normalizePersonName(payload.name);
+  const parsedBirthDate = parseBirthDate(payload.birth_date);
 
   try {
     // البحث فقط بين السجلات غير المحذوفة لتجنب التعارض مع الحذف الناعم
     const existing = await prisma.beneficiary.findFirst({
-      where: { card_number: payload.card_number, deleted_at: null },
+      where: {
+        card_number: { equals: normalizedCardNumber, mode: "insensitive" },
+      },
       select: { id: true },
     });
 
     if (existing && existing.id !== payload.id) {
-      return { error: "رقم البطاقة مستخدم لمستفيد آخر" };
+      return { error: "رقم البطاقة مستخدم مسبقاً ولا يمكن استخدامه لشخص آخر" };
+    }
+
+    if (parsedBirthDate) {
+      const existingPerson = await prisma.beneficiary.findFirst({
+        where: {
+          id: { not: payload.id },
+          deleted_at: null,
+          name: { equals: normalizedName, mode: "insensitive" },
+          birth_date: parsedBirthDate,
+        },
+        select: { id: true, card_number: true },
+      });
+
+      if (existingPerson) {
+        return { error: "لا يمكن إعطاء بطاقتين لنفس المستفيد (تطابق الاسم وتاريخ الميلاد)" };
+      }
     }
 
     await prisma.beneficiary.update({
       where: { id: payload.id },
       data: {
-        name: payload.name,
-        card_number: payload.card_number,
-        birth_date: (() => {
-          if (!payload.birth_date) return null;
-          const d = new Date(payload.birth_date);
-          if (isNaN(d.getTime())) return null;
-          return d;
-        })(),
+        name: normalizedName,
+        card_number: normalizedCardNumber,
+        birth_date: parsedBirthDate,
         status: payload.status,
       },
     });
@@ -137,7 +252,7 @@ export async function updateBeneficiary(data: {
         action: "UPDATE_BENEFICIARY",
         metadata: {
           beneficiary_id: payload.id,
-          card_number: payload.card_number,
+          card_number: normalizedCardNumber,
         },
       },
     });
@@ -206,7 +321,7 @@ export async function restoreBeneficiary(id: string) {
   try {
     const beneficiary = await prisma.beneficiary.findUnique({
       where: { id },
-      select: { id: true, card_number: true, name: true, deleted_at: true },
+      select: { id: true, card_number: true, name: true, birth_date: true, deleted_at: true },
     });
 
     if (!beneficiary || beneficiary.deleted_at === null) {
@@ -214,12 +329,32 @@ export async function restoreBeneficiary(id: string) {
     }
 
     // تحقق من عدم وجود مستفيد نشط بنفس رقم البطاقة
+    const normalizedCardNumber = normalizeCardNumber(beneficiary.card_number);
     const duplicate = await prisma.beneficiary.findFirst({
-      where: { card_number: beneficiary.card_number, deleted_at: null },
+      where: {
+        id: { not: id },
+        card_number: { equals: normalizedCardNumber, mode: "insensitive" },
+      },
       select: { id: true },
     });
     if (duplicate) {
-      return { error: "يوجد مستفيد نشط بنفس رقم البطاقة، لا يمكن الاسترجاع" };
+      return { error: "رقم البطاقة مستخدم مسبقاً ولا يمكن ربطه بشخصين" };
+    }
+
+    if (beneficiary.birth_date) {
+      const duplicatePerson = await prisma.beneficiary.findFirst({
+        where: {
+          id: { not: id },
+          deleted_at: null,
+          name: { equals: normalizePersonName(beneficiary.name), mode: "insensitive" },
+          birth_date: beneficiary.birth_date,
+        },
+        select: { id: true },
+      });
+
+      if (duplicatePerson) {
+        return { error: "لا يمكن استرجاع السجل لأن نفس المستفيد (الاسم وتاريخ الميلاد) موجود برقم بطاقة آخر" };
+      }
     }
 
     await prisma.beneficiary.update({

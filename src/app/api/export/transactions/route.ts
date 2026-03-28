@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireActiveFacilitySession } from "@/lib/session-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import ExcelJS from "exceljs";
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const rateLimitError = checkRateLimit(`api:${session.id}`, "api");
+  const rateLimitError = await checkRateLimit(`api:${session.id}`, "api");
   if (rateLimitError) {
     return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get("q");
 
   // نفس منطق الفلترة في صفحة الحركات
-  const where: Record<string, any> = session.is_admin
+  const where: Prisma.TransactionWhereInput = session.is_admin
     ? (facility_id ? { facility_id } : {})
     : { facility_id: session.id };
 

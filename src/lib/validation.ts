@@ -22,7 +22,7 @@ export const createFacilitySchema = z.object({
     .regex(/^[a-z0-9_]+$/, "اسم المستخدم يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط"),
   password: z
     .string()
-    .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل")
+    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
     .max(128, "كلمة المرور طويلة جداً")
     .optional(),
 });
@@ -74,5 +74,12 @@ export const updateBeneficiarySchema = z.object({
   }),
 });
 
+export const createBeneficiarySchema = z.object({
+  name: z.string().min(2, "الاسم يجب أن يكون حرفين على الأقل").max(100, "الاسم طويل جداً"),
+  card_number: z.string().min(3, "رقم البطاقة غير صالح").max(50, "رقم البطاقة طويل جداً"),
+  birth_date: z.string().max(20, "تاريخ غير صالح").optional(),
+});
+
 export type CreateFacilityInput = z.infer<typeof createFacilitySchema>;
 export type UpdateFacilityInput = z.infer<typeof updateFacilitySchema>;
+export type CreateBeneficiaryInput = z.infer<typeof createBeneficiarySchema>;

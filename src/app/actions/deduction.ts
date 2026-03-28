@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { requireActiveFacilitySession } from "@/lib/session-guard";
 import { logger } from "@/lib/logger";
+import { emitNotification } from "@/lib/sse-notifications";
 
 export async function deductBalance(formData: {
   card_number: string;
@@ -18,7 +19,7 @@ export async function deductBalance(formData: {
     return { error: "غير مصرح لك بهذه العملية" };
   }
 
-  const rateLimitError = checkRateLimit(`deduct:${session.id}`, "deduct");
+  const rateLimitError = await checkRateLimit(`deduct:${session.id}`, "deduct");
   if (rateLimitError) return { error: rateLimitError };
 
   const validated = deductionSchema.safeParse(formData);
@@ -34,7 +35,7 @@ export async function deductBalance(formData: {
       // On PostgreSQL, we can use SELECT ... FOR UPDATE
       const beneficiaries = await tx.$queryRaw<Array<{ id: string; remaining_balance: number; status: string }>>`
         SELECT id, remaining_balance, status FROM "Beneficiary" 
-        WHERE card_number = ${card_number} 
+        WHERE UPPER(BTRIM(card_number)) = UPPER(BTRIM(${card_number}))
         AND "deleted_at" IS NULL
         LIMIT 1 
         FOR UPDATE
@@ -76,6 +77,16 @@ export async function deductBalance(formData: {
         },
       });
 
+      // 3.1 Create in-app notification
+      const notification = await tx.notification.create({
+        data: {
+          beneficiary_id: beneficiary.id,
+          title: "تم خصم من رصيدك",
+          message: `تم خصم ${Number(amount).toLocaleString("ar-LY")} د.ل من رصيدك لدى ${session.name}`,
+          amount,
+        },
+      });
+
       // 4. Create audit log
       await tx.auditLog.create({
         data: {
@@ -91,12 +102,34 @@ export async function deductBalance(formData: {
         },
       });
 
-      return { success: true, newBalance };
+      return {
+        success: true,
+        newBalance,
+        beneficiaryId: beneficiary.id,
+        notificationId: notification.id,
+        transaction: {
+          id: transaction.id,
+          amount: Number(transaction.amount),
+          type: transaction.type,
+          created_at: transaction.created_at.toISOString(),
+          facility_name: session.name,
+        },
+      };
+    });
+
+    emitNotification(result.beneficiaryId, {
+      id: result.notificationId,
+      title: "تم خصم من رصيدك",
+      message: `تم خصم ${Number(amount).toLocaleString("ar-LY")} د.ل من رصيدك لدى ${session.name}`,
+      amount,
+      remaining_balance: result.newBalance,
+      created_at: new Date().toISOString(),
+      transaction: result.transaction,
     });
 
     revalidatePath("/dashboard");
     revalidatePath("/transactions");
-    return result;
+    return { success: true, newBalance: result.newBalance };
   } catch (error: unknown) {
     logger.error("Deduction error", { error: String(error) });
     return { error: error instanceof Error ? error.message : "Failed to process deduction" };

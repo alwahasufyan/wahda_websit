@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, RotateCcw, Loader2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cancelTransaction } from "@/app/actions/cancel-transaction";
 import { deleteCancellationTransaction } from "@/app/actions/restore-transaction";
@@ -67,7 +67,7 @@ export function TransactionCancelButton({ transactionId, isCancelled, type }: Tr
         }`}
         title={isRestoreAction ? "حذف حركة التراجع (إعادة الخصم)" : "إلغاء الحركة (استرجاع المبلغ)"}
       >
-        {isRestoreAction ? <Trash2 className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+        <Trash2 className="h-4 w-4" />
       </button>
 
       {isModalOpen && (

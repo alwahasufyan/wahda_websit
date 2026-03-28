@@ -1,10 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createFacility } from "@/app/actions/facility";
 
 export function CreateFacilityForm() {
   const [state, action, pending] = useActionState(createFacility, null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state && typeof state === "object" && "success" in state && state.success) {
+      router.refresh();
+    }
+  }, [state, router]);
 
   return (
     <form action={action} className="space-y-3">
@@ -36,8 +44,13 @@ export function CreateFacilityForm() {
         <p className="mt-1 text-xs text-slate-400">أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط</p>
       </div>
       <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        كلمة المرور الافتراضية: <span className="font-black" dir="ltr">123456</span> — سيُطلب من المستخدم تغييرها عند أول تسجيل دخول.
+        سيتم توليد كلمة مرور مؤقتة عشوائية تلقائياً، وسيُطلب من المستخدم تغييرها عند أول تسجيل دخول.
       </div>
+      {state && typeof state === "object" && "success" in state && state.success && "tempPassword" in state ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+          تم إنشاء الحساب بنجاح — كلمة المرور المؤقتة: <span className="font-black" dir="ltr">{String(state.tempPassword)}</span>
+        </div>
+      ) : null}
       <button
         type="submit"
         disabled={pending}

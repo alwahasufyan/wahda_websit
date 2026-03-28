@@ -9,7 +9,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
  */
 export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const rateLimitError = checkRateLimit(`health:${ip}`, "api");
+  const rateLimitError = await checkRateLimit(`health:${ip}`, "api");
   if (rateLimitError) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }

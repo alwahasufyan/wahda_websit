@@ -17,6 +17,7 @@ export function FacilityEditModal({ facility }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +30,16 @@ export function FacilityEditModal({ facility }: Props) {
         setError(result.error);
       } else {
         setSuccess(true);
-        setTimeout(() => {
-          setOpen(false);
-          setSuccess(false);
-          setResetPassword(false);
-        }, 800);
+        if (result.tempPassword) {
+          setGeneratedPassword(result.tempPassword);
+        } else {
+          setTimeout(() => {
+            setOpen(false);
+            setSuccess(false);
+            setResetPassword(false);
+            setGeneratedPassword(null);
+          }, 800);
+        }
       }
     } catch {
       setError("خطأ في الاتصال. حاول مرة أخرى.");
@@ -45,7 +51,7 @@ export function FacilityEditModal({ facility }: Props) {
   return (
     <>
       <button
-        onClick={() => { setOpen(true); setError(null); setSuccess(false); setName(facility.name); setUsername(facility.username); setResetPassword(false); }}
+        onClick={() => { setOpen(true); setError(null); setSuccess(false); setName(facility.name); setUsername(facility.username); setResetPassword(false); setGeneratedPassword(null); }}
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary"
         title="تعديل المرفق"
       >
@@ -96,7 +102,7 @@ export function FacilityEditModal({ facility }: Props) {
                 />
                 <label htmlFor="reset-pw" className="flex items-center gap-1.5 text-sm font-bold text-amber-800 cursor-pointer">
                   <RotateCcw className="h-3.5 w-3.5" />
-                  إعادة تعيين كلمة المرور إلى الافتراضية (123456)
+                  إعادة تعيين كلمة المرور (ستُولّد كلمة مرور عشوائية)
                 </label>
               </div>
 
@@ -105,9 +111,16 @@ export function FacilityEditModal({ facility }: Props) {
                   {error}
                 </div>
               )}
-              {success && (
+              {success && !generatedPassword && (
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
                   ✓ تم الحفظ بنجاح
+                </div>
+              )}
+              {generatedPassword && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">
+                  كلمة المرور المؤقتة: <span dir="ltr" className="font-black">{generatedPassword}</span>
+                  <br />
+                  <span className="text-xs text-blue-500">انسخها الآن — لن تظهر مرة أخرى</span>
                 </div>
               )}
 

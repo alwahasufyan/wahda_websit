@@ -18,13 +18,6 @@ export function BeneficiariesSearch({ initialQuery }: BeneficiariesSearchProps) 
 
   const paramsSnapshot = useMemo(() => searchParams.toString(), [searchParams]);
 
-  // مزامنة initialQuery فقط عندما لا يكتب المستخدم (مثلاً عند التنقل بالأزرار)
-  useEffect(() => {
-    if (!isTypingRef.current) {
-      setQuery(initialQuery);
-    }
-  }, [initialQuery]);
-
   useEffect(() => {
     const handler = setTimeout(() => {
       const currentQuery = (searchParams.get("q") ?? "").trim();

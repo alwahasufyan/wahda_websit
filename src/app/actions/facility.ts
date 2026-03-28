@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { redirect } from "next/navigation";
+import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { createFacilitySchema, updateFacilitySchema } from "@/lib/validation";
@@ -29,7 +29,8 @@ export async function createFacility(prevState: unknown, formData: FormData) {
     return { error: "اسم المستخدم محجوز مسبقاً، اختر اسماً آخر" };
   }
 
-  const password_hash = await bcrypt.hash("123456", 10);
+  const tempPassword = randomBytes(4).toString("hex");
+  const password_hash = await bcrypt.hash(tempPassword, 10);
 
   await prisma.facility.create({
     data: { name, username, password_hash, is_admin: false, must_change_password: true },
@@ -44,7 +45,12 @@ export async function createFacility(prevState: unknown, formData: FormData) {
     },
   });
 
-  redirect("/admin/facilities?created=" + encodeURIComponent(name));
+  revalidatePath("/admin/facilities");
+  return {
+    success: true,
+    createdName: name,
+    tempPassword,
+  };
 }
 
 export async function updateFacility(data: {
@@ -80,8 +86,7 @@ export async function updateFacility(data: {
   const updateData: Record<string, unknown> = { name, username };
 
   if (data.resetPassword) {
-    // كلمة مرور افتراضية — المستخدم مُجبر على تغييرها عند أول دخول
-    const tempPassword = "123456";
+    const tempPassword = randomBytes(4).toString("hex");
     updateData.password_hash = await bcrypt.hash(tempPassword, 10);
     updateData.must_change_password = true;
 

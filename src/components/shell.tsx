@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "./ui";
-import { LayoutDashboard, ListOrdered, Upload, LogOut, Users, Building2, KeyRound, AlertTriangle, FileInput } from "lucide-react";
+import { LayoutDashboard, ListOrdered, LogOut, Users, Building2, KeyRound, DatabaseBackup, ClipboardList } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 
 const safeLogout = async () => {
@@ -17,10 +18,9 @@ const baseNavigation = [
 
 const adminNavigation = [
   { name: "المستفيدون", href: "/beneficiaries", icon: Users },
-  { name: "الاستيراد", href: "/import", icon: Upload },
-  { name: "استيراد الحركات", href: "/import-transactions", icon: FileInput },
   { name: "المرافق الصحية", href: "/admin/facilities", icon: Building2 },
-  { name: "سجل الأخطاء", href: "/admin/client-errors", icon: AlertTriangle },
+  { name: "سجل المراقبة", href: "/admin/audit-log", icon: ClipboardList },
+  { name: "النسخ الاحتياطي", href: "/admin/backup", icon: DatabaseBackup },
 ];
 
 export function Shell({ children, facilityName, isAdmin = false }: { children: React.ReactNode; facilityName: string; isAdmin?: boolean }) {
@@ -34,7 +34,7 @@ export function Shell({ children, facilityName, isAdmin = false }: { children: R
           <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="Waha Health Care" width={38} height={38} className="object-contain" />
+                <Image src="/logo.png" alt="Waha Health Care" width={38} height={38} className="object-contain" />
                 <div>
                                     <h1 className="text-sm font-black leading-tight text-slate-900">شركة الواحة</h1>
                   <h2 className="text-sm font-black leading-tight text-slate-900">Waha Health Care</h2>

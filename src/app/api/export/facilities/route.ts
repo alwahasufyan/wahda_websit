@@ -14,7 +14,7 @@ export async function GET() {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  const rateLimitError = checkRateLimit(`api:${session.id}`, "api");
+  const rateLimitError = await checkRateLimit(`api:${session.id}`, "api");
   if (rateLimitError) {
     return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }

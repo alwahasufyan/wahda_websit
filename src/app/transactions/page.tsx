@@ -1,12 +1,14 @@
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { Shell } from "@/components/shell";
 import { Card, Badge, Input, Button } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { ExportButton } from "@/components/export-button";
 import { TransactionCancelButton } from "@/components/transaction-cancel-button";
 import Link from "next/link";
+import { DatabaseBackup, FileInput } from "lucide-react";
 
 type TransactionRow = {
   id: string;
@@ -37,7 +39,7 @@ export default async function TransactionsPage({
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   // كل مرفق يرى حركاته فقط — المشرف يرى الكل ويمكنه الفلترة
-  const where: Record<string, any> = session.is_admin
+  const where: Prisma.TransactionWhereInput = session.is_admin
     ? (facility_id ? { facility_id } : {})
     : { facility_id: session.id };
 
@@ -119,6 +121,24 @@ export default async function TransactionsPage({
             <p className="text-sm text-slate-500">تقرير مفصل بجميع العمليات</p>
           </div>
           <div className="no-print flex items-center gap-2">
+            {session.is_admin && (
+              <Link
+                href="/import-transactions"
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
+              >
+                <FileInput className="h-4 w-4" />
+                استيراد الحركات
+              </Link>
+            )}
+            {session.is_admin && (
+              <Link
+                href="/admin/backup"
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
+              >
+                <DatabaseBackup className="h-4 w-4" />
+                النسخ الاحتياطي
+              </Link>
+            )}
             <ExportButton searchParams={searchParams} />
             <PrintButton />
           </div>
