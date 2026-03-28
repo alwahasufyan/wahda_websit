@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getArabicSearchTerms } from "@/lib/search";
 import { updateBeneficiarySchema, createBeneficiarySchema } from "@/lib/validation";
 import { INITIAL_BALANCE } from "@/lib/config";
 import { revalidatePath } from "next/cache";
@@ -79,10 +80,10 @@ export async function searchBeneficiaries(query: string) {
     const items = await prisma.beneficiary.findMany({
       where: {
         deleted_at: null,
-        OR: [
-          { card_number: { contains: q, mode: "insensitive" } },
-          { name: { contains: q, mode: "insensitive" } },
-        ],
+        OR: getArabicSearchTerms(q).flatMap(t => [
+          { card_number: { contains: t, mode: "insensitive" as const } },
+          { name: { contains: t, mode: "insensitive" as const } },
+        ]),
       },
       select: {
         id: true,

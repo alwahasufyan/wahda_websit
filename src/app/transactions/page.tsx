@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { Shell } from "@/components/shell";
+import { getArabicSearchTerms } from "@/lib/search";
 import { Card, Badge, Input, Button } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { ExportButton } from "@/components/export-button";
@@ -46,10 +47,10 @@ export default async function TransactionsPage({
   // فلترة بالبحث (اسم أو رقم بطاقة)
   const searchQuery = q?.trim().slice(0, 100) ?? "";
   if (searchQuery !== "") {
-    where.OR = [
-      { beneficiary: { name: { contains: searchQuery, mode: "insensitive" } } },
-      { beneficiary: { card_number: { contains: searchQuery, mode: "insensitive" } } },
-    ];
+    where.OR = getArabicSearchTerms(searchQuery).flatMap(t => [
+      { beneficiary: { name: { contains: t, mode: "insensitive" as const } } },
+      { beneficiary: { card_number: { contains: t, mode: "insensitive" as const } } },
+    ]);
   }
 
   // فلترة بالتاريخ (من - إلى)

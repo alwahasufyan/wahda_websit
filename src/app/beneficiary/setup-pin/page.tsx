@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldAlert, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { Suspense } from "react";
 
 function SetupPinForm() {
@@ -15,6 +15,7 @@ function SetupPinForm() {
   const [step, setStep] = useState<"enter" | "confirm">("enter");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -108,7 +109,7 @@ function SetupPinForm() {
               <input
                 key={i}
                 ref={(el) => { pinRefs.current[i] = el; }}
-                type="password"
+                type={showPin ? "text" : "password"}
                 inputMode="numeric"
                 maxLength={1}
                 value={d}
@@ -119,6 +120,10 @@ function SetupPinForm() {
               />
             ))}
           </div>
+          <button type="button" onClick={() => setShowPin(!showPin)} className="flex items-center gap-1.5 mx-auto text-xs text-slate-400 hover:text-slate-600">
+            {showPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {showPin ? "إخفاء الأرقام" : "إظهار الأرقام"}
+          </button>
         </>
       ) : (
         <>
@@ -128,7 +133,7 @@ function SetupPinForm() {
               <input
                 key={i}
                 ref={(el) => { confirmRefs.current[i] = el; }}
-                type="password"
+                type={showPin ? "text" : "password"}
                 inputMode="numeric"
                 maxLength={1}
                 value={d}
@@ -139,6 +144,10 @@ function SetupPinForm() {
               />
             ))}
           </div>
+          <button type="button" onClick={() => setShowPin(!showPin)} className="flex items-center gap-1.5 mx-auto text-xs text-slate-400 hover:text-slate-600">
+            {showPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {showPin ? "إخفاء الأرقام" : "إظهار الأرقام"}
+          </button>
         </>
       )}
 

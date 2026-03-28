@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useActionState } from "react";
+import React, { useActionState, useState } from "react";
 import Link from "next/link";
 import { authenticate } from "@/app/actions/auth";
 import { Button, Input, Card } from "@/components/ui";
-import { Loader2, Lock, ShieldCheck, User } from "lucide-react";
+import { Loader2, Lock, ShieldCheck, User, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [state, action, isPending] = useActionState(authenticate, undefined);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
@@ -50,12 +51,15 @@ export default function LoginPage() {
                   <Lock className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary" />
                   <Input
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="h-12 pr-12 text-sm"
+                    className="h-12 pr-12 pl-12 text-sm"
                     required
                   />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
             </div>

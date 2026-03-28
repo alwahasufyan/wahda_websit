@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ShieldAlert, CreditCard } from "lucide-react";
+import { Loader2, ShieldAlert, CreditCard, Eye, EyeOff } from "lucide-react";
 
 type Step = "card" | "pin";
 
@@ -14,6 +14,7 @@ export default function BeneficiaryLoginPage() {
   const [error, setError] = useState("");
   const [errorPulse, setErrorPulse] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const cardRef = useRef<HTMLInputElement>(null);
@@ -182,7 +183,7 @@ export default function BeneficiaryLoginPage() {
                   <input
                     key={i}
                     ref={(el) => { pinRefs.current[i] = el; }}
-                    type="password"
+                    type={showPin ? "text" : "password"}
                     inputMode="numeric"
                     maxLength={1}
                     value={digit}
@@ -193,6 +194,11 @@ export default function BeneficiaryLoginPage() {
                   />
                 ))}
               </div>
+
+              <button type="button" onClick={() => setShowPin(!showPin)} className="flex items-center gap-1.5 mx-auto text-xs text-slate-400 hover:text-slate-600">
+                {showPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showPin ? "إخفاء الأرقام" : "إظهار الأرقام"}
+              </button>
 
               {error && (
                 <div className={`flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 ${errorPulse ? "animate-shake" : ""}`}>

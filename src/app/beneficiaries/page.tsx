@@ -3,6 +3,7 @@ import { Search, Users, CalendarDays, CreditCard, Trash2, RotateCcw, Upload, Dow
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { getArabicSearchTerms } from "@/lib/search";
 import { Shell } from "@/components/shell";
 import { Card, Badge } from "@/components/ui";
 import { BeneficiariesSearch } from "@/components/beneficiaries-search";
@@ -36,10 +37,10 @@ export default async function BeneficiariesPage({
   const where = query
     ? {
         ...baseFilter,
-        OR: [
-          { name: { contains: query, mode: "insensitive" as const } },
-          { card_number: { contains: query, mode: "insensitive" as const } },
-        ],
+        OR: getArabicSearchTerms(query).flatMap(t => [
+          { name: { contains: t, mode: "insensitive" as const } },
+          { card_number: { contains: t, mode: "insensitive" as const } },
+        ]),
       }
     : baseFilter;
 

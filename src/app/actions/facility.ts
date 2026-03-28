@@ -86,7 +86,7 @@ export async function updateFacility(data: {
   const updateData: Record<string, unknown> = { name, username };
 
   if (data.resetPassword) {
-    const tempPassword = randomBytes(4).toString("hex");
+    const tempPassword = "123456";
     updateData.password_hash = await bcrypt.hash(tempPassword, 10);
     updateData.must_change_password = true;
 

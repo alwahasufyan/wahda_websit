@@ -102,7 +102,7 @@ export function FacilityEditModal({ facility }: Props) {
                 />
                 <label htmlFor="reset-pw" className="flex items-center gap-1.5 text-sm font-bold text-amber-800 cursor-pointer">
                   <RotateCcw className="h-3.5 w-3.5" />
-                  إعادة تعيين كلمة المرور (ستُولّد كلمة مرور عشوائية)
+                  إعادة تعيين كلمة المرور (ستُعاد إلى 123456)
                 </label>
               </div>
 

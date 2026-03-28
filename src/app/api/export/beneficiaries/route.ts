@@ -4,6 +4,7 @@ import { requireActiveFacilitySession } from "@/lib/session-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { getArabicSearchTerms } from "@/lib/search";
 
 const EXPORT_LIMIT = 50_000;
 
@@ -30,10 +31,10 @@ export async function GET(request: NextRequest) {
     ...(isDeletedView ? { deleted_at: { not: null } } : { deleted_at: null }),
     ...(q
       ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { card_number: { contains: q, mode: "insensitive" as const } },
-          ],
+          OR: getArabicSearchTerms(q).flatMap(t => [
+            { name: { contains: t, mode: "insensitive" as const } },
+            { card_number: { contains: t, mode: "insensitive" as const } },
+          ]),
         }
       : {}),
   };

@@ -3,6 +3,7 @@ import { User, Download } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { getArabicSearchTerms } from "@/lib/search";
 import { Shell } from "@/components/shell";
 import { Card, Badge, Input, Button } from "@/components/ui";
 import { CreateFacilityForm } from "./create-form";
@@ -29,10 +30,10 @@ export default async function FacilitiesPage({
     deleted_at: null,
     ...(q && q.trim()
       ? {
-          OR: [
-            { name: { contains: q.trim(), mode: "insensitive" as const } },
-            { username: { contains: q.trim(), mode: "insensitive" as const } },
-          ],
+          OR: getArabicSearchTerms(q.trim()).flatMap(t => [
+            { name: { contains: t, mode: "insensitive" as const } },
+            { username: { contains: t, mode: "insensitive" as const } },
+          ]),
         }
       : {}),
   };

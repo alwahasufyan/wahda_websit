@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useActionState } from "react";
+import React, { useActionState, useState } from "react";
 import { changePassword } from "@/app/actions/auth";
 import { Button, Input, Card } from "@/components/ui";
-import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { KeyRound, Loader2, ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 export default function ChangePasswordPage() {
   const [state, action, isPending] = useActionState(changePassword, undefined);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
@@ -37,30 +39,40 @@ export default function ChangePasswordPage() {
               <label className="block text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                 كلمة المرور الجديدة
               </label>
-              <Input
-                name="newPassword"
-                type="password"
-                autoComplete="new-password"
-                placeholder="6 أحرف على الأقل"
-                className="h-12 text-sm"
-                required
-                minLength={6}
-              />
+              <div className="relative">
+                <Input
+                  name="newPassword"
+                  type={showNew ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="6 أحرف على الأقل"
+                  className="h-12 pl-12 text-sm"
+                  required
+                  minLength={6}
+                />
+                <button type="button" onClick={() => setShowNew(!showNew)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                  {showNew ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
               <label className="block text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                 تأكيد كلمة المرور
               </label>
-              <Input
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                placeholder="أعد كتابة كلمة المرور"
-                className="h-12 text-sm"
-                required
-                minLength={6}
-              />
+              <div className="relative">
+                <Input
+                  name="confirmPassword"
+                  type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="أعد كتابة كلمة المرور"
+                  className="h-12 pl-12 text-sm"
+                  required
+                  minLength={6}
+                />
+                <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                  {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
 
             {state?.error && (

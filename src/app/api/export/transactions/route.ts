@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { logger } from "@/lib/logger";
+import { getArabicSearchTerms } from "@/lib/search";
 import ExcelJS from "exceljs";
 
 export async function GET(request: NextRequest) {
@@ -29,10 +30,10 @@ export async function GET(request: NextRequest) {
     : { facility_id: session.id };
 
   if (q && q.trim() !== "") {
-    where.OR = [
-      { beneficiary: { name: { contains: q, mode: "insensitive" } } },
-      { beneficiary: { card_number: { contains: q, mode: "insensitive" } } },
-    ];
+    where.OR = getArabicSearchTerms(q.trim()).flatMap(t => [
+      { beneficiary: { name: { contains: t, mode: "insensitive" as const } } },
+      { beneficiary: { card_number: { contains: t, mode: "insensitive" as const } } },
+    ]);
   }
 
   if (start_date || end_date) {
