@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Search, CreditCard, AlertCircle, CheckCircle2, Loader2, DollarSign, X } from "lucide-react";
 import { Button, Input, Card, Badge, cn } from "./ui";
+import { useToast } from "./toast";
 import { getBeneficiaryByCard, searchBeneficiaries } from "@/app/actions/beneficiary";
 import { deductBalance } from "@/app/actions/deduction";
 
@@ -26,6 +27,7 @@ interface BeneficiarySuggestion {
 const RECENT_BENEFICIARIES_KEY = "wahda_recent_beneficiaries";
 
 export function DeductForm() {
+  const toast = useToast();
   const [searchInput, setSearchInput] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [loading, setLoading] = useState(false);
@@ -92,8 +94,24 @@ export function DeductForm() {
       }
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + K
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const input = searchBoxRef.current?.querySelector('input');
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }
+    };
+
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    }
   }, []);
 
   useEffect(() => {
@@ -212,8 +230,10 @@ export function DeductForm() {
 
     if ("error" in result) {
       setError(result.error as string);
+      toast.error(result.error as string);
     } else {
       setSuccess("تمت عملية الخصم بنجاح");
+      toast.success(`تم خصم ${parseFloat(amount).toLocaleString("ar-LY")} د.ل بنجاح`);
       setBeneficiary({
         ...beneficiary,
         remaining_balance: result.newBalance,
@@ -248,7 +268,7 @@ export function DeductForm() {
                 }
               }}
               onFocus={() => searchInput.trim().length >= 2 && setShowSuggestions(true)}
-              placeholder="أدخل رقم البطاقة أو اسم المستفيد"
+              placeholder="أدخل رقم البطاقة أو اسم المستفيد (Ctrl+K)"
               className="h-10 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
               disabled={loading || deducting}
               autoFocus

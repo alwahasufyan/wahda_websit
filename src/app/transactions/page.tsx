@@ -30,7 +30,7 @@ type TransactionRow = {
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: { start_date?: string; end_date?: string; facility_id?: string; page?: string; q?: string };
+  searchParams: Promise<{ start_date?: string; end_date?: string; facility_id?: string; page?: string; q?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -76,9 +76,14 @@ export default async function TransactionsPage({
     prisma.transaction.findMany({
       where,
       orderBy: { created_at: "desc" },
-      include: {
-        beneficiary: true,
-        facility: true,
+      select: {
+        id: true,
+        amount: true,
+        type: true,
+        is_cancelled: true,
+        created_at: true,
+        beneficiary: { select: { name: true, card_number: true, remaining_balance: true } },
+        facility: { select: { name: true } },
       },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -93,8 +98,6 @@ export default async function TransactionsPage({
   ]);
 
   const totalAmount = aggregate._sum.amount ?? 0;
-  // حساب إجمالي المتبقي من الصفحة الحالية فقط — تجنب تحميل كل السجلات في الذاكرة
-  const totalRemaining = transactions.reduce((sum: number, tx: TransactionRow) => sum + Number(tx.beneficiary.remaining_balance), 0);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   // المشرف يرى قائمة كل المرافق في الفلتر
@@ -140,7 +143,7 @@ export default async function TransactionsPage({
                 النسخ الاحتياطي
               </Link>
             )}
-            <ExportButton searchParams={searchParams} />
+            <ExportButton searchParams={{ start_date, end_date, facility_id, q }} />
             <PrintButton />
           </div>
         </div>
@@ -347,11 +350,7 @@ export default async function TransactionsPage({
                       <span>{Number(totalAmount).toLocaleString("ar-LY")}</span>
                       <span className="mr-3 text-[10px] text-slate-400">د.ل</span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <span>{Number(totalRemaining).toLocaleString("ar-LY")}</span>
-                      <span className="mr-3 text-[10px] text-slate-400">د.ل</span>
-                    </td>
-                    <td colSpan={2}></td>
+                    <td colSpan={session.is_admin ? 4 : 3}></td>
                   </tr>
                 </tfoot>
               )}

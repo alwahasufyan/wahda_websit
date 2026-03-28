@@ -1,6 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Tajawal } from "next/font/google";
+import { ToastProvider } from "@/components/toast";
+import { validateEnv } from "@/lib/env";
 import "./globals.css";
+
+validateEnv();
 
 const tajawal = Tajawal({
   subsets: ["arabic", "latin"],
@@ -8,9 +12,17 @@ const tajawal = Tajawal({
   variable: "--font-tajawal",
 });
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#1f4e8c" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+  ],
+};
+
 export const metadata: Metadata = {
   title: "Waha Health Care",
-  description: "Waha Health Care",
+  description: "نظام إدارة المستفيدين الصحيين — شركة الواحة للرعاية الصحية",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -21,9 +33,10 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${tajawal.variable} ${tajawal.className}`} suppressHydrationWarning>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
 }
-

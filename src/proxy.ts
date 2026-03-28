@@ -40,7 +40,7 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(new URL("/beneficiary/login", req.nextUrl));
     }
     try {
-      const secret = process.env.JWT_SECRET;
+      const secret = process.env.BENEFICIARY_JWT_SECRET || process.env.JWT_SECRET;
       if (!secret) throw new Error("JWT_SECRET not set");
       const key = new TextEncoder().encode(secret);
       const { payload } = await jwtVerify(benCookie, key, { algorithms: ["HS256"] });

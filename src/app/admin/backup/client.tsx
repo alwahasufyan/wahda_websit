@@ -111,12 +111,19 @@ export function BackupClient() {
       }
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
+      // تنظيف اسم الملف من الممكن أن يحتوي على أحرف خبيثة
       const disposition = res.headers.get("Content-Disposition");
       const filenameMatch = disposition?.match(/filename="(.+)"/);
-      a.download = filenameMatch?.[1] || `wahda-backup-${new Date().toISOString().slice(0, 10)}.wbk`;
+      let filename = filenameMatch?.[1] || `wahda-backup-${new Date().toISOString().slice(0, 10)}.wbk`;
+      // إزالة أي أحرف مسار أو أحرف خطرة
+      filename = filename.replace(/[/\\<>:"|?*]/g, "_").replace(/\.\./g, "");
+      if (!filename.endsWith(".wbk")) filename += ".wbk";
+
+      const safeBlob = new Blob([blob], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(safeBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -1,9 +1,29 @@
 import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
-  return new PrismaClient({
+  const client = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     datasourceUrl: appendPoolParams(process.env.DATABASE_URL ?? ""),
+  });
+
+  // إضافة مراقبة الأداء (Performance Monitoring) على استعلامات قاعدة البيانات
+  // سيتم تسجيل أي استعلام يستغرق أكثر من 150 ملي ثانية
+  return client.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ operation, model, args, query }) {
+          const start = performance.now();
+          const result = await query(args);
+          const time = performance.now() - start;
+          
+          if (time > 150) {
+            console.warn(`[PERFORMANCE WARNING] Query ${model}.${operation} took ${time.toFixed(2)}ms`);
+          }
+          
+          return result;
+        },
+      },
+    },
   });
 };
 

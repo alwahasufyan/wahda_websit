@@ -5,8 +5,9 @@ const COOKIE_NAME = "ben_session";
 const EXPIRES_MS = 7 * 24 * 60 * 60 * 1000; // 7 أيام
 
 function getKey() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error("JWT_SECRET not set");
+  // يفضل استخدام مفتاح منفصل للمستفيدين — يقع الفال على JWT_SECRET للتوافق
+  const secret = process.env.BENEFICIARY_JWT_SECRET || process.env.JWT_SECRET;
+  if (!secret) throw new Error("BENEFICIARY_JWT_SECRET or JWT_SECRET not set");
   return new TextEncoder().encode(secret);
 }
 
