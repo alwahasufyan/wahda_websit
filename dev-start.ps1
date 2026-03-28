@@ -26,5 +26,5 @@ if (Test-Path $lockPath) {
 }
 
 Write-Host ""
-Write-Host "تشغيل خادم التطوير..." -ForegroundColor Cyan
+Write-Host "تشغيل خادم التطوير على المنفذ 3031..." -ForegroundColor Cyan
 npm run dev

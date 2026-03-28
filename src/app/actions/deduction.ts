@@ -4,7 +4,6 @@ import prisma from "@/lib/prisma";
 import { deductionSchema } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
 import { requireActiveFacilitySession } from "@/lib/session-guard";
 import { logger } from "@/lib/logger";
 import { emitNotification } from "@/lib/sse-notifications";
@@ -30,7 +29,7 @@ export async function deductBalance(formData: {
   const { card_number, amount, type } = validated.data;
 
   try {
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Get beneficiary with row-level lock (using raw sql as Prisma interactive tx isn't always enough for specific locking locks)
       // On PostgreSQL, we can use SELECT ... FOR UPDATE
       const beneficiaries = await tx.$queryRaw<Array<{ id: string; remaining_balance: number; status: string }>>`
